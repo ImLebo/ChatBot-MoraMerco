@@ -11,8 +11,14 @@ interface UserMessageQueue {
   isProcessing: boolean;
 }
 
+interface PausedChatState {
+  pausedUntil: number;
+  reason: 'COMANDO_MANUAL' | 'INTERVENCION_HUMANA';
+}
+
 export class BotCoordinatorService implements IMessageHandler {
   private readonly userQueues = new Map<string, UserMessageQueue>();
+  private readonly pausedChats = new Map<string, PausedChatState>();
   private readonly debounceMs: number;
 
   constructor(
@@ -30,7 +36,18 @@ export class BotCoordinatorService implements IMessageHandler {
   ): Promise<void> {
     const jid = message.remoteJid;
 
-    // 0. Si el cliente envió cualquier mensaje, pausar inmediatamente cualquier seguimiento pendiente
+    // 0. Si el mensaje fue enviado por el ASESOR HUMANO (desde su celular o WhatsApp Web)
+    if (message.fromMe) {
+      this.handleHumanAgentMessage(message);
+      return;
+    }
+
+    // 1. Si el chat se encuentra pausado por intervención humana, no responder
+    if (this.isChatPaused(jid, message)) {
+      return;
+    }
+
+    // 2. Si el cliente envió cualquier mensaje, pausar inmediatamente cualquier seguimiento pendiente
     this.followUpService.onCustomerReplied(jid);
 
     let queue = this.userQueues.get(jid);
@@ -68,6 +85,101 @@ export class BotCoordinatorService implements IMessageHandler {
     queue.timer = setTimeout(async () => {
       await this.processMessageBatch(jid);
     }, waitTime);
+  }
+
+  /**
+   * Procesa mensajes enviados por el dueño/asesor para comandos (#activar, #pausar) o entrega de control automática
+   */
+  private handleHumanAgentMessage(message: NormalizedMessage): void {
+    const text = message.text.trim().toLowerCase();
+    const jid = message.remoteJid;
+
+    // 1. Comando para reactivar el bot manualmente
+    if (text === '#activar' || text === '#bot' || text === '#reanudar' || text === '#play') {
+      this.pausedChats.delete(jid);
+      console.log('\n======================================================');
+      console.log(`▶️ [COMANDO MANUAL] Bot REACTIVADO en el chat [+${message.senderNumber}]`);
+      console.log(`🤖 Maria Paula vuelve a responder automáticamente a este cliente.`);
+      console.log('======================================================\n');
+      return;
+    }
+
+    // 2. Comando para pausar el bot manualmente (ej: #pausar o #pausar 4)
+    if (
+      text.startsWith('#pausar') ||
+      text === '#humano' ||
+      text === '#stop' ||
+      text === '#desactivar' ||
+      text === '#silenciar'
+    ) {
+      const parts = text.split(' ');
+      let hours = 2;
+      if (parts.length > 1 && !isNaN(Number(parts[1]))) {
+        hours = Math.max(1, Number(parts[1]));
+      }
+
+      const pauseDurationMs = hours * 60 * 60 * 1000;
+      this.pausedChats.set(jid, {
+        pausedUntil: Date.now() + pauseDurationMs,
+        reason: 'COMANDO_MANUAL',
+      });
+
+      // Cancelar cualquier seguimiento pendiente y limpiar cola
+      this.followUpService.onCustomerReplied(jid);
+      const queue = this.userQueues.get(jid);
+      if (queue?.timer) clearTimeout(queue.timer);
+      this.userQueues.delete(jid);
+
+      console.log('\n======================================================');
+      console.log(`⏸️ [COMANDO MANUAL] Bot PAUSADO en el chat [+${message.senderNumber}] por ${hours} horas.`);
+      console.log(`👤 El bot NO responderá hasta las ${new Date(Date.now() + pauseDurationMs).toLocaleTimeString()} o hasta enviar #activar.`);
+      console.log('======================================================\n');
+      return;
+    }
+
+    // 3. Cualquier otro mensaje enviado por el asesor humano (Intervención humana automática)
+    // Se silencia automáticamente por 2 horas en este chat
+    const defaultHours = 2;
+    const pauseDurationMs = defaultHours * 60 * 60 * 1000;
+    this.pausedChats.set(jid, {
+      pausedUntil: Date.now() + pauseDurationMs,
+      reason: 'INTERVENCION_HUMANA',
+    });
+
+    // Pausar el seguimiento automático para no interrumpir la conversación del asesor
+    this.followUpService.onCustomerReplied(jid);
+    const queue = this.userQueues.get(jid);
+    if (queue?.timer) clearTimeout(queue.timer);
+    this.userQueues.delete(jid);
+
+    console.log('\n======================================================');
+    console.log(`👤 [INTERVENCIÓN HUMANA DETECTADA] en [+${message.senderNumber}]`);
+    console.log(`💬 Mensaje del asesor: "${message.text}"`);
+    console.log(`⏸️ Bot silenciado automáticamente por ${defaultHours} horas en este chat.`);
+    console.log(`💡 Para reactivarlo antes, envía #activar en cualquier momento.`);
+    console.log('======================================================\n');
+  }
+
+  /**
+   * Verifica si un chat está actualmente silenciado por intervención humana
+   */
+  private isChatPaused(jid: string, message: NormalizedMessage): boolean {
+    const pauseInfo = this.pausedChats.get(jid);
+    if (!pauseInfo) return false;
+
+    // Si aún está dentro de la ventana de pausa:
+    if (Date.now() < pauseInfo.pausedUntil) {
+      const remainingMinutes = Math.max(1, Math.ceil((pauseInfo.pausedUntil - Date.now()) / 60000));
+      console.log(`\n⏸️ [CHAT SILENCIADO] Mensaje de ${message.senderName || 'Cliente'} (+${message.senderNumber}): "${message.text}"`);
+      console.log(`ℹ️ El bot NO responderá porque está bajo control del asesor humano (pausa activa por ${remainingMinutes} min más).`);
+      console.log(`💡 Para que el bot vuelva a responder, escribe #activar en el chat.\n`);
+      return true;
+    }
+
+    // Si el tiempo de pausa ya expiró:
+    this.pausedChats.delete(jid);
+    console.log(`\n▶️ [FIN DE PAUSA] La intervención humana finalizó para [+${message.senderNumber}]. Maria Paula retoma la atención.\n`);
+    return false;
   }
 
   private async processMessageBatch(jid: string): Promise<void> {
@@ -189,7 +301,15 @@ export class BotCoordinatorService implements IMessageHandler {
         await sender.sendTextMessage(unifiedMessage.remoteJid, responseText);
       }
 
-      console.log(`📤 Maria Paula respondió a +${unifiedMessage.senderNumber} vía [${source}]`);
+      console.log('\n📤 ---------------- MENSAJE ENVIADO ----------------');
+      console.log(`👤 Para: ${unifiedMessage.senderName || 'Cliente'} (+${unifiedMessage.senderNumber})`);
+      console.log(`💬 Respuesta:\n"${responseText}"`);
+      if (buttonsToAttach && buttonsToAttach.length > 0) {
+        console.log(`🔘 Botones adjuntos: ${buttonsToAttach.map((b) => b.displayText).join(' | ')}`);
+      }
+      console.log(`🎯 Vía: [${source}]`);
+      console.log(`🕒 Hora: ${new Date().toLocaleTimeString()}`);
+      console.log('----------------------------------------------------\n');
 
       // 7. Programar seguimiento automático solo si el pedido NO ha sido confirmado
       const currentState = this.quickReplyService.getState(unifiedMessage.remoteJid);

@@ -99,12 +99,14 @@ export class FollowUpService {
     let messageText = '';
     if (stage === 1) {
       messageText =
-        `¡Hola! Te escribo con mucho cariño para saber si te quedó alguna duda sobre las medidas o el funcionamiento de la base para tu equipo 😊\n\n` +
-        `Recuerda que como se ajusta de 40 a 70 cm le queda perfecta a cualquier nevera o lavadora y protege tus pisos de humedad y rayones. ¡Quedo súper atenta por si te puedo colaborar en algo! ✨`;
+        `Estimado/a cliente, reciba un cordial saludo de parte de MoraMerco 😊\n\n` +
+        `Le escribo con el mayor agrado para consultarle si le quedó alguna inquietud acerca de las medidas o el funcionamiento de la base para sus electrodomésticos.\n\n` +
+        `Recuerde que al ser ajustable de 40 a 70 cm y soportar hasta 200 kg, se adapta perfectamente a su nevera o lavadora y protege sus pisos contra la humedad y rayones. Quedo muy atenta a sus indicaciones ✨`;
     } else if (stage === 2) {
       messageText =
-        `¡Hola! Paso a saludarte porque nuestro equipo en bodega ya está cerrando los despachos del día de hoy con la transportadora 🚚📦\n\n` +
-        `¿Te gustaría que alcancemos a programar la tuya con el *Envío Gratis* y pago en efectivo al recibir en casa? Si deseas, me confirmas y te la dejamos lista hoy mismo 🙌💛`;
+        `Buen día, le saluda nuevamente Maria Paula de MoraMerco 👋\n\n` +
+        `Paso a comentarle respetuosamente que en nuestra bodega nos encontramos organizando los despachos del día junto a la transportadora 🚚📦\n\n` +
+        `¿Desea que alcancemos a programar su entrega con el *Envío Gratis* y pago contra entrega en efectivo al recibir en su domicilio? Quedo muy atenta para dejársela lista de inmediato 🙌`;
     }
 
     if (!messageText) return;
@@ -119,7 +121,11 @@ export class FollowUpService {
       chat.stage = stage;
       chat.timer = undefined;
 
-      console.log(`📤 Seguimiento automático #${stage} ENVIADO a [${jid}] exitosamente.`);
+      console.log('\n📤 ------------ SEGUIMIENTO AUTOMÁTICO ENVIADO ------------');
+      console.log(`👤 Para: [${jid}] (Etapa #${stage})`);
+      console.log(`💬 Mensaje:\n"${messageText}"`);
+      console.log(`🕒 Hora: ${new Date().toLocaleTimeString()}`);
+      console.log('-----------------------------------------------------------\n');
 
       // Si fue el seguimiento 1, programar el seguimiento 2
       if (stage === 1) {

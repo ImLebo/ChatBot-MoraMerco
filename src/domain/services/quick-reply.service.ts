@@ -77,9 +77,9 @@ export class QuickReplyService {
         intent: 'CONFIRM_ORDER',
         nextState: 'ORDER_CONFIRMED',
         response:
-          `¡Listo! Tu pedido quedó 100% CONFIRMADO y entra de inmediato a bodega para empaque y despacho hoy mismo 📦🎉\n\n` +
-          `🚚 Te llegará en 2 a 4 días hábiles a tu domicilio con la transportadora y pagas en efectivo solo al recibir en tus manos 🙌\n\n` +
-          `Apenas la transportadora genere el número de guía te lo compartiremos por aquí. ¡Mil gracias por confiar en MoraMerco! 😊✨`,
+          `Su pedido ha quedado 100% CONFIRMADO y entra de inmediato a bodega para empaque y despacho el día de hoy 📦🎉\n\n` +
+          `🚚 Le llegará en un plazo de 2 a 4 días hábiles a su domicilio mediante la transportadora y abona el valor en efectivo únicamente al recibir en sus manos 🙌\n\n` +
+          `En cuanto la transportadora genere su número de guía se lo compartiremos por este medio. ¡Muchas gracias por su confianza en MoraMerco! 😊✨`,
       };
     }
 
@@ -95,7 +95,7 @@ export class QuickReplyService {
       return {
         matched: true,
         intent: 'GREETING_ACTIVE_CHAT',
-        response: `¡Hola! Por aquí sigo contigo con todo el gusto 😊 ¿Tienes alguna otra duda o te gustaría que programemos tu entrega?`,
+        response: `Un cordial saludo. Por aquí continúo a su entera disposición 😊 ¿Tiene alguna otra inquietud o desea que coordinemos su entrega?`,
       };
     }
 
@@ -133,14 +133,14 @@ export class QuickReplyService {
               { id: 'CONFIRMAR', displayText: '✅ CONFIRMAR PEDIDO' }
             ],
             response:
-              `¡Perfecto! Ya verifiqué tus datos para el despacho 📦✨\n\n` +
-              `📦 *RESUMEN DE TU PEDIDO:*\n` +
-              `• Envío: 100% GRATIS a tu puerta 🚚\n` +
+              `¡Perfecto! Hemos verificado sus datos para el despacho 📦✨\n\n` +
+              `📦 *RESUMEN DE SU PEDIDO:*\n` +
+              `• Envío: 100% GRATIS a su domicilio 🚚\n` +
               `• Pago: Contra entrega en efectivo al recibir\n` +
               `• Destino: ${validation.city || 'Confirmado'}\n` +
               `• Datos registrados:\n${rawText.trim()}\n\n` +
-              `👇 *Para programar tu despacho hoy mismo:*\n` +
-              `Toca la opción *CONFIRMAR* de abajo o responde *CONFIRMAR* (o *1*)`,
+              `👇 *Para programar su despacho el día de hoy:*\n` +
+              `Por favor seleccione la opción *CONFIRMAR* de abajo o responda con la palabra *CONFIRMAR*.`,
           };
         } else {
           // Datos incompletos, incoherentes o con dirección/celular inválidos
@@ -183,12 +183,12 @@ export class QuickReplyService {
           intent: 'SELECT_SINGLE',
           nextState: 'DATA_REQUESTED',
           response:
-            `¡Listo, con mucho gusto! Te la dejamos programada para despacho hoy mismo 📦✨\n\n` +
-            `Para coordinar tu *Envío Gratis* y pago contra entrega en casa por *$79.900*, compárteme porfa:\n` +
-            `• Nombre completo:\n` +
-            `• Ciudad y Barrio:\n` +
+            `Con el mayor de los gustos. Se la dejamos programada para despacho hoy mismo 📦✨\n\n` +
+            `Para coordinar su *Envío Gratis* y pago contra entrega en efectivo por *$79.900*, por favor facilítenos:\n` +
+            `• Nombre y apellido:\n` +
+            `• Ciudad y barrio:\n` +
             `• Dirección exacta:\n` +
-            `• Celular:`,
+            `• Número de celular:`,
         };
       }
 
@@ -199,12 +199,12 @@ export class QuickReplyService {
           intent: 'SELECT_KIT2',
           nextState: 'DATA_REQUESTED',
           response:
-            `¡Excelente elección con el *KIT x2*! 🎉 (Aprovechas el súper ahorro de $19.900)\n\n` +
-            `Para programar tu despacho hoy mismo con *Envío Gratis* y pago contra entrega en casa por *$139.900*, compárteme porfa:\n` +
-            `• Nombre completo:\n` +
-            `• Ciudad y Barrio:\n` +
+            `Excelente elección con el *KIT x2* 🎉 (Aprovecha el descuento especial de $19.900)\n\n` +
+            `Para coordinar su despacho el día de hoy con *Envío Gratis* y pago contra entrega por *$139.900*, por favor facilítenos:\n` +
+            `• Nombre y apellido:\n` +
+            `• Ciudad y barrio:\n` +
             `• Dirección exacta:\n` +
-            `• Celular:`,
+            `• Número de celular:`,
         };
       }
 
@@ -215,12 +215,12 @@ export class QuickReplyService {
           intent: 'SELECT_KIT3',
           nextState: 'DATA_REQUESTED',
           response:
-            `¡Espectacular elección con el *KIT x3*! 🎉 (Aprovechas el ahorro máximo de $50.000)\n\n` +
-            `Para programar tu despacho hoy mismo con *Envío Gratis* y pago contra entrega en casa por *$189.900*, compárteme porfa:\n` +
-            `• Nombre completo:\n` +
-            `• Ciudad y Barrio:\n` +
+            `Excelente elección con el *KIT x3* 🎉 (Aprovecha el ahorro máximo de $50.000)\n\n` +
+            `Para coordinar su despacho el día de hoy con *Envío Gratis* y pago contra entrega por *$189.900*, por favor facilítenos:\n` +
+            `• Nombre y apellido:\n` +
+            `• Ciudad y barrio:\n` +
             `• Dirección exacta:\n` +
-            `• Celular:`,
+            `• Número de celular:`,
         };
       }
 
@@ -231,12 +231,12 @@ export class QuickReplyService {
           intent: 'ACCEPT_ORDER',
           nextState: 'DATA_REQUESTED',
           response:
-            `¡Listo, con muchísimo gusto! Te dejamos todo programado hoy mismo 📦✨\n\n` +
-            `Para programar tu entrega con *Envío Gratis* y pago contra entrega en casa, compárteme porfa:\n` +
-            `• Nombre completo:\n` +
-            `• Ciudad y Barrio:\n` +
+            `Con el mayor de los gustos. Le dejamos todo coordinado el día de hoy 📦✨\n\n` +
+            `Para programar su despacho con *Envío Gratis* y pago contra entrega en efectivo, por favor facilítenos:\n` +
+            `• Nombre y apellido:\n` +
+            `• Ciudad y barrio:\n` +
             `• Dirección exacta:\n` +
-            `• Celular:`,
+            `• Número de celular:`,
         };
       }
     }
@@ -263,11 +263,11 @@ export class QuickReplyService {
           intent: 'OFFER_FRIDGE',
           nextState: 'PRICING_SENT',
           response:
-            `¡Súper! Para tu nevera te queda a la medida porque se gradúa de 40 a 70 cm y soporta hasta 200 kg con ruedas y freno ✨\n\n` +
-            `Manejamos estas opciones con *Envío Gratis* y pago en casa 🚚:\n` +
-            `🔹 *1 Base (para tu nevera):* $79.900\n` +
-            `🔥 *KIT x2 (aprovechas para lavadora también):* $139.900 (te ahorras $19.900)\n\n` +
-            `¿Te gustaría llevar solo la de la nevera o prefieres aprovechar la promo del Kit x2?`,
+            `Con mucho gusto. Para su nevera le queda a la medida, ya que se gradúa de 40 a 70 cm y soporta hasta 200 kg con ruedas y freno de seguridad ✨\n\n` +
+            `Manejamos estas opciones con *Envío Gratis* y pago en efectivo al recibir 🚚:\n` +
+            `🔹 *1 Base (para su nevera):* $79.900\n` +
+            `🔥 *KIT x2 (aprovecha también para lavadora):* $139.900 (ahorra $19.900)\n\n` +
+            `¿Desea ordenar solo la de nevera o prefiere aprovechar la promoción del Kit x2?`,
         };
       }
 
@@ -277,11 +277,11 @@ export class QuickReplyService {
           intent: 'OFFER_WASHER',
           nextState: 'PRICING_SENT',
           response:
-            `¡Súper! Para tu lavadora te queda a la medida porque se gradúa de 40 a 70 cm y sus ruedas con freno evitan que vibre o se mueva al centrifugar ✨\n\n` +
-            `Manejamos estas opciones con *Envío Gratis* y pago en casa 🚚:\n` +
-            `🔹 *1 Base (para tu lavadora):* $79.900\n` +
-            `🔥 *KIT x2 (aprovechas para nevera también):* $139.900 (te ahorras $19.900)\n\n` +
-            `¿Te gustaría llevar solo la de lavadora o prefieres aprovechar la promo del Kit x2?`,
+            `Con mucho gusto. Para su lavadora le queda a la medida, ya que se gradúa de 40 a 70 cm y sus ruedas con freno evitan que vibre o se mueva durante el centrifugado ✨\n\n` +
+            `Manejamos estas opciones con *Envío Gratis* y pago en efectivo al recibir 🚚:\n` +
+            `🔹 *1 Base (para su lavadora):* $79.900\n` +
+            `🔥 *KIT x2 (aprovecha también para nevera):* $139.900 (ahorra $19.900)\n\n` +
+            `¿Desea ordenar solo la de lavadora o prefiere aprovechar la promoción del Kit x2?`,
         };
       }
 
@@ -291,9 +291,9 @@ export class QuickReplyService {
           intent: 'OFFER_BOTH',
           nextState: 'PRICING_SENT',
           response:
-            `¡Excelente decisión! El *KIT x2* es el más vendido porque dejas ambos equipos protegidos de la humedad y fáciles de mover 🎉\n\n` +
-            `Te queda en *$139.900* con *Envío Gratis* y pago en efectivo al recibir en casa (ahorras $19.900).\n\n` +
-            `¿Te gustaría que te lo apartemos para despacho hoy mismo?`,
+            `Excelente decisión. El *KIT x2* es la opción más solicitada porque deja ambos electrodomésticos protegidos de la humedad y fáciles de desplazar ✨\n\n` +
+            `Le queda en *$139.900* con *Envío Gratis* y pago contra entrega en efectivo al recibir en su domicilio (ahorra $19.900).\n\n` +
+            `¿Desea que se lo dejemos programado para despacho el día de hoy?`,
         };
       }
     }
@@ -312,9 +312,9 @@ export class QuickReplyService {
         matched: true,
         intent: 'DOES_IT_WORK',
         response:
-          `¡Totalmente! Soporta hasta 200 kg, no se oxida y las ruedas traen freno para quedar bien firme. Te salva de dolores de espalda al moverla y limpia tus pisos fácil 😊\n\n` +
-          `Manejamos 1 Unidad en $79.900 o el Kit x2 en promo por $139.900 (ahorras $19.900) con Envío Gratis y pagas al recibir 🚚\n\n` +
-          `¿Te gustaría probar una o prefieres aprovechar la promo del Kit x2?`,
+          `Totalmente garantizado. Soporta hasta 200 kg, cuenta con estructura anticorrosiva y ruedas con freno para quedar firme, facilitando el aseo de sus pisos sin maltratar su espalda 😊\n\n` +
+          `Manejamos 1 Unidad en $79.900 o el Kit x2 en oferta por $139.900 (ahorra $19.900) con Envío Gratis y pago contra entrega 🚚\n\n` +
+          `¿Le gustaría ordenar una unidad o prefiere aprovechar la oferta del Kit x2?`,
       };
     }
 
@@ -329,9 +329,9 @@ export class QuickReplyService {
         matched: true,
         intent: 'MATERIAL_AND_RESISTANCE',
         response:
-          `¡Es súper resistente! Tiene barras de acero inoxidable anticorrosivo y esquinas de alto impacto (no se oxida con el trapero). Aguanta hasta 200 kg y las ruedas traen freno de seguridad 💪✨\n\n` +
+          `Es de excelente resistencia. Cuenta con barras de acero inoxidable anticorrosivo y esquinas de alto impacto (no se deteriora con el trapero ni la humedad). Soporta hasta 200 kg y sus ruedas cuentan con freno de seguridad ✨\n\n` +
           `Manejamos 1 Unidad ($79.900) y Kit x2 ($139.900 con $19.900 de ahorro) con Envío Gratis y pago en casa 🚚\n\n` +
-          `¿Para cuántos equipos la necesitas?`,
+          `¿Para cuántos electrodomésticos la necesita?`,
       };
     }
 
@@ -345,8 +345,8 @@ export class QuickReplyService {
         matched: true,
         intent: 'WARRANTY_AND_TRUST',
         response:
-          `¡Cero riesgo y total tranquilidad! 🙌💛 Pagas en efectivo en tu casa únicamente cuando recibes el producto en tus manos. Además cuentas con 30 días de garantía directa por fábrica.\n\n` +
-          `¿Para qué ciudad o municipio sería tu entrega?`,
+          `Total seguridad y tranquilidad. El pago se realiza en efectivo en su domicilio únicamente al momento de recibir el producto en sus manos. Además, cuenta con 30 días de garantía directa por fábrica 🙌\n\n` +
+          `¿Para qué ciudad o municipio sería su entrega?`,
       };
     }
 
@@ -360,8 +360,8 @@ export class QuickReplyService {
         matched: true,
         intent: 'PAYMENT_METHODS',
         response:
-          `¡Pagas contra entrega en efectivo al recibir en la puerta de tu casa! 💵🙌 (Muchos transportadores también reciben Nequi o Bancolombia al momento de entregarte).\n\n` +
-          `¿Te gustaría ordenar 1 Unidad ($79.900) o el Kit x2 en promo ($139.900)?`,
+          `Cancela contra entrega en efectivo al recibir en la puerta de su domicilio 💵🙌 (Gran parte de las transportadoras también aceptan transferencia Nequi o Bancolombia al momento de entregarle).\n\n` +
+          `¿Desea ordenar 1 Unidad ($79.900) o el Kit x2 en promoción ($139.900)?`,
       };
     }
 
@@ -375,8 +375,8 @@ export class QuickReplyService {
         matched: true,
         intent: 'INSTALLATION',
         response:
-          `¡Es facilísima! Se arma en menos de 3 minutos sin herramientas 🛠️✨ Solo unes los tubos a las esquinas, ajustas a la medida de tu equipo (de 40 a 70 cm) y bajas los seguros.\n\n` +
-          `¿La buscas para tu nevera, lavadora o para ambas?`,
+          `Es sumamente práctica. Se ensambla en menos de 3 minutos sin necesidad de herramientas 🛠️✨ Solo une los tubos a las esquinas, ajusta a la medida de su electrodoméstico (de 40 a 70 cm) y baja los seguros.\n\n` +
+          `¿La busca para su nevera, lavadora o para ambas?`,
       };
     }
 
@@ -390,8 +390,8 @@ export class QuickReplyService {
         matched: true,
         intent: 'LOCATION',
         response:
-          `Despachamos desde nuestras bodegas principales en Bogotá y Medellín directamente hasta tu puerta en toda Colombia 🇨🇴🚚 El envío es 100% Gratis y pagas al recibir.\n\n` +
-          `¿En qué ciudad te encuentras para coordinar tu entrega?`,
+          `Despachamos desde nuestras bodegas principales en Bogotá y Medellín directamente hasta su domicilio en cualquier ciudad o municipio del país 🇨🇴🚚 El envío es 100% Gratis y paga al recibir.\n\n` +
+          `¿En qué ciudad se encuentra para coordinar su entrega?`,
       };
     }
 
@@ -404,7 +404,7 @@ export class QuickReplyService {
         matched: true,
         intent: 'HUMAN_AGENT',
         response:
-          `¡Hola! Claro que sí, con mucho gusto aquí estoy contigo 😊 Soy Maria Paula, asesora de MoraMerco. Cuéntame con toda confianza qué inquietud tienes y te ayudo de una.`,
+          `Un cordial saludo. Con el mayor gusto, le saluda Maria Paula, asesora de MoraMerco 😊 Por favor indíqueme en qué le puedo colaborar y con gusto le asisto.`,
       };
     }
 
@@ -418,9 +418,9 @@ export class QuickReplyService {
         intent: 'MEASUREMENTS',
         nextState: 'PRICING_SENT',
         response:
-          `¡Le queda perfecta a cualquier equipo estándar! Se gradúa desde 40x40 cm hasta 70x70 cm y soporta hasta 200 kg ✨\n\n` +
+          `Le queda a la medida a cualquier equipo estándar. Es graduable desde 40x40 cm hasta 70x70 cm y soporta hasta 200 kg ✨\n\n` +
           `Manejamos 1 Unidad ($79.900) y Kit x2 ($139.900 con $19.900 de ahorro) con Envío Gratis y pago en casa 🚚\n\n` +
-          `¿Cuántas unidades necesitas para tus equipos?`,
+          `¿Cuántas unidades requiere para sus equipos?`,
       };
     }
 
@@ -434,8 +434,8 @@ export class QuickReplyService {
         matched: true,
         intent: 'SHIPPING',
         response:
-          `El envío es 100% *GRATIS* a toda Colombia y pagas en efectivo al recibir en tu puerta 🙌 Te llega en 2 a 4 días hábiles por Coordinadora o Servientrega 📦\n\n` +
-          `¿En qué ciudad te encuentras?`,
+          `El envío es 100% *GRATIS* a toda Colombia y abona el valor en efectivo únicamente al recibir en su domicilio 🙌 El tiempo de entrega es de 2 a 4 días hábiles mediante transportadoras oficiales como Coordinadora o Servientrega 📦\n\n` +
+          `¿En qué ciudad o municipio se encuentra?`,
       };
     }
 
@@ -446,7 +446,7 @@ export class QuickReplyService {
         matched: true,
         intent: 'THANKS',
         response:
-          `¡Con muchísimo gusto! Es todo un placer atenderte 😊✨ Cualquier cosita que necesites, aquí estaré con mucho gusto.`,
+          `¡Con el mayor de los gustos! Es todo un placer atenderle 😊✨ Quedo a su entera disposición para cualquier requerimiento adicional.`,
       };
     }
 
@@ -466,11 +466,11 @@ export class QuickReplyService {
         intent: 'PRICE',
         nextState: 'PRICING_SENT',
         response:
-          `¡Con gusto! Manejamos estas opciones con *Envío Gratis* y pago contra entrega en casa 🚚:\n\n` +
+          `Con el mayor gusto. Manejamos estas opciones oficiales con *Envío Gratis* y pago contra entrega en efectivo 🚚:\n\n` +
           `🔹 *1 Base:* $79.900\n` +
-          `🔥 *KIT x2 (Nevera + Lavadora):* $139.900 (Ahorras $19.900)\n` +
-          `✨ *KIT x3:* $189.900 (Ahorras $50.000)\n\n` +
-          `¿La buscas para 1 equipo o te gustaría aprovechar la promo del Kit x2?`,
+          `🔥 *KIT x2 (Nevera + Lavadora):* $139.900 (Ahorra $19.900)\n` +
+          `✨ *KIT x3:* $189.900 (Ahorra $50.000)\n\n` +
+          `¿La busca para 1 electrodoméstico o prefiere aprovechar la promoción del Kit x2?`,
       };
     }
 
@@ -481,8 +481,8 @@ export class QuickReplyService {
         intent: 'GREETING',
         nextState: 'AWAITING_APPLIANCE',
         response:
-          `¡Hola! Qué gusto saludarte, soy Maria Paula de MoraMerco 😊\n\n` +
-          `Con muchísimo gusto te ayudo. ¿La base la buscas para tu nevera, lavadora o para ambas?`,
+          `Un cordial saludo. Le saluda Maria Paula de MoraMerco, es un gusto atenderle 😊\n\n` +
+          `Con el mayor agrado le oriento. ¿La base la busca para su nevera, lavadora o para ambos equipos?`,
       };
     }
 

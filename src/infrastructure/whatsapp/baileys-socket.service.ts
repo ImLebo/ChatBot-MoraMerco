@@ -22,6 +22,17 @@ export class BaileysSocketService implements IMessageSender {
     private readonly messageHandler: IMessageHandler
   ) {}
 
+  private readonly botSentMessageIds = new Set<string>();
+
+  private registerBotSentMessage(id?: string | null): void {
+    if (!id) return;
+    this.botSentMessageIds.add(id);
+    if (this.botSentMessageIds.size > 2000) {
+      const first = this.botSentMessageIds.keys().next().value;
+      if (first) this.botSentMessageIds.delete(first);
+    }
+  }
+
   public async connect(): Promise<void> {
     if (this.isConnecting) return;
     this.isConnecting = true;
@@ -80,7 +91,7 @@ export class BaileysSocketService implements IMessageSender {
         console.log('\n======================================================');
         console.log('✅ ¡CONECTADO CON ÉXITO A WHATSAPP WEB!');
         console.log('🤖 El bot está activo y escuchando mensajes en tiempo real.');
-        console.log('======================================================\n');
+        console.log('======================================================');
       }
     });
 
@@ -90,6 +101,11 @@ export class BaileysSocketService implements IMessageSender {
       if (upsert.type !== 'notify') return;
 
       for (const rawMessage of upsert.messages) {
+        // Ignorar si fue un mensaje enviado por nuestro propio bot (evita bucles)
+        if (rawMessage.key?.id && this.botSentMessageIds.has(rawMessage.key.id)) {
+          continue;
+        }
+
         const normalized = this.normalizeMessage(rawMessage);
         if (!normalized) continue;
 
@@ -110,8 +126,8 @@ export class BaileysSocketService implements IMessageSender {
   }
 
   private normalizeMessage(raw: proto.IWebMessageInfo): NormalizedMessage | null {
-    // Ignorar mensajes sin clave o enviados por nosotros mismos
-    if (!raw.key || raw.key.fromMe) return null;
+    // Ignorar mensajes sin clave
+    if (!raw.key) return null;
 
     const remoteJid = raw.key.remoteJid;
     if (!remoteJid) return null;
@@ -158,13 +174,11 @@ export class BaileysSocketService implements IMessageSender {
     } else if (messageContent.templateButtonReplyMessage?.selectedDisplayText) {
       text = messageContent.templateButtonReplyMessage.selectedDisplayText;
     }
-    // 5. Respuesta de Lista (ListResponseMessage)
+    // 5. Respuesta a Encuesta o Botón en Lista (ListResponseMessage)
     else if (messageContent.listResponseMessage?.singleSelectReply?.selectedRowId) {
       text = messageContent.listResponseMessage.singleSelectReply.selectedRowId;
-    } else if (messageContent.listResponseMessage?.title) {
-      text = messageContent.listResponseMessage.title;
     }
-    // 6. Texto en imágenes o videos
+    // 6. Mensaje multimedia con pie de foto (Caption)
     else if (messageContent.imageMessage?.caption) {
       text = messageContent.imageMessage.caption;
     } else if (messageContent.videoMessage?.caption) {
@@ -178,7 +192,7 @@ export class BaileysSocketService implements IMessageSender {
     const trimmedText = text.trim();
     if (!trimmedText) return null;
 
-    // Extraer el número telefónico sin sufijo @s.whatsapp.net
+    // Extraer el número telefónico sin sufijo @s.whatsapp.net ni @lid
     const senderNumber = remoteJid.split('@')[0];
     const senderName = raw.pushName || undefined;
     const timestamp = typeof raw.messageTimestamp === 'number'
@@ -191,7 +205,7 @@ export class BaileysSocketService implements IMessageSender {
       senderNumber,
       senderName,
       text: trimmedText,
-      fromMe: false,
+      fromMe: Boolean(raw.key.fromMe),
       isGroup,
       timestamp,
     };
@@ -202,7 +216,10 @@ export class BaileysSocketService implements IMessageSender {
     if (!this.socket) {
       throw new Error('Socket no inicializado');
     }
-    await this.socket.sendMessage(recipientJid, { text });
+    const result = await this.socket.sendMessage(recipientJid, { text });
+    if (result?.key?.id) {
+      this.registerBotSentMessage(result.key.id);
+    }
   }
 
   public async sendInteractiveButtons(
@@ -218,18 +235,24 @@ export class BaileysSocketService implements IMessageSender {
 
     // 1. Enviar SIEMPRE el texto completo primero con el resumen.
     // Esto garantiza 100% que el cliente lo reciba en su pantalla sin riesgo de que WhatsApp lo oculte.
-    await this.socket.sendMessage(recipientJid, { text: bodyText });
+    const res1 = await this.socket.sendMessage(recipientJid, { text: bodyText });
+    if (res1?.key?.id) {
+      this.registerBotSentMessage(res1.key.id);
+    }
 
     // 2. Enviar el botón interactivo de confirmación mediante Poll de WhatsApp (100% compatible con móviles)
     try {
       const pollOptions = buttons.map((btn) => btn.displayText);
-      await this.socket.sendMessage(recipientJid, {
+      const res2 = await this.socket.sendMessage(recipientJid, {
         poll: {
           name: '👇 Toca la opción para confirmar tu pedido:',
           values: pollOptions,
           selectableCount: 1,
         },
       });
+      if (res2?.key?.id) {
+        this.registerBotSentMessage(res2.key.id);
+      }
       console.log(`🔘 Botón interactivo de confirmación enviado a +${recipientJid.split('@')[0]}`);
     } catch (error) {
       console.warn('⚠️ No se pudo enviar el botón interactivo secundario:', error);

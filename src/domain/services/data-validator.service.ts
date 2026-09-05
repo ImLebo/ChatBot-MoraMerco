@@ -204,9 +204,9 @@ export class DataValidatorService {
     if (!isValid) {
       const introName = foundName && foundName !== 'NOMBRE_DETECTADO' ? `, ${foundName.split(' ')[0]}` : '';
       feedbackMessage =
-        `¡Casi listo${introName}! 😊 Para que la transportadora pueda entregar tu paquete en tu puerta sin perderse, porfa me confirmas:\n\n` +
+        `Apreciado/a cliente${introName}, para que la transportadora pueda entregar su pedido directamente en su domicilio sin contratiempos, por favor facilítenos los siguientes datos faltantes:\n\n` +
         missing.map((f) => `• ${f}`).join('\n') +
-        `\n\n¡Con estos daticos te dejamos programado el despacho hoy mismo! 🚚📦`;
+        `\n\nCon estos datos coordinaremos de inmediato su despacho el día de hoy 🚚📦`;
     }
 
     return {
