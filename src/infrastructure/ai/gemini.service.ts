@@ -48,6 +48,10 @@ export class GeminiService implements IAiService {
 
       // 3. Limitar el historial a los últimos turnos para optimizar tokens y costes
       const limitedHistory = history.slice(-this.maxHistoryRounds);
+      const isOngoing = history.length > 1;
+      const currentSystemInstruction = isOngoing
+        ? `${MORAMERCO_SYSTEM_PROMPT}\n\n[INSTRUCCIÓN CRÍTICA]: Esta conversación YA ESTÁ EN CURSO. El cliente YA fue saludado y bienvenido. ¡ESTRICTAMENTE PROHIBIDO decir "¡Hola! Soy Maria Paula, bienvenido a MoraMerco" o volver a saludar! Responda directamente de forma ULTRA CONCISA (máximo 1 o 2 frases cortas).`
+        : MORAMERCO_SYSTEM_PROMPT;
 
       // 4. Llamar a Gemini con el System Prompt oficial de MoraMerco (con modelo de respaldo si hay alta demanda)
       let response;
@@ -56,9 +60,9 @@ export class GeminiService implements IAiService {
           model: this.modelName,
           contents: limitedHistory,
           config: {
-            systemInstruction: MORAMERCO_SYSTEM_PROMPT,
-            temperature: 0.6,
-            maxOutputTokens: 800,
+            systemInstruction: currentSystemInstruction,
+            temperature: 0.5,
+            maxOutputTokens: 500,
           },
         });
       } catch (err: any) {
@@ -69,9 +73,9 @@ export class GeminiService implements IAiService {
             model: fallbackModel,
             contents: limitedHistory,
             config: {
-              systemInstruction: MORAMERCO_SYSTEM_PROMPT,
-              temperature: 0.6,
-              maxOutputTokens: 800,
+              systemInstruction: currentSystemInstruction,
+              temperature: 0.5,
+              maxOutputTokens: 500,
             },
           });
         } else {
@@ -79,7 +83,18 @@ export class GeminiService implements IAiService {
         }
       }
 
-      const replyText = response.text?.trim() || 'Con gusto te ayudo. ¿Cuál de las opciones te apartamos o cuántas necesitas?';
+      let replyText = response.text?.trim() || 'Con gusto le ayudo. ¿Cuál de las opciones le apartamos?';
+
+      // Si la conversación ya está en curso, sanitizar cualquier saludo repetitivo que el modelo genere
+      if (isOngoing) {
+        replyText = replyText
+          .replace(/^¡?hola!?,?\s*(soy maria paula,?\s*)?(bienvenido a moramerco\s*([😊✨🙌])?)?\s*/i, '')
+          .replace(/^(un cordial saludo|muy buenas tardes|buenos dias|buen dia)[.,!😊✨🙌\s]*/i, '')
+          .trim();
+        if (replyText.length > 0) {
+          replyText = replyText.charAt(0).toUpperCase() + replyText.slice(1);
+        }
+      }
 
       // 5. Agregar la respuesta del modelo al historial
       history.push({
@@ -93,12 +108,17 @@ export class GeminiService implements IAiService {
       return replyText;
     } catch (error) {
       console.error(`❌ Error en Gemini AI para el chat [${senderId}]:`, error);
+      if (this.conversationHistory.get(senderId) && this.conversationHistory.get(senderId)!.length > 1) {
+        return (
+          'Con gusto le confirmo: 1 Base le queda en *$79.900* o el Kit x2 en *$139.900* con Envío Gratis y pago en casa 🚚\n\n' +
+          '¿Desea que le apartemos 1 Base o prefiere el Kit x2?'
+        );
+      }
       return (
-        '¡Hola! Soy Maria Paula, bienvenido a MoraMerco 😊 Con el mayor gusto le comparto nuestras opciones con *Envío Gratis* y pago contra entrega en efectivo 🚚:\n\n' +
+        '¡Hola! Soy Maria Paula, bienvenido a MoraMerco 😊 Con gusto le comparto nuestras opciones con Envío Gratis y pago contra entrega en efectivo 🚚:\n\n' +
         '🔹 1 Base: $79.900\n' +
-        '🔥 KIT x2 (Nevera + Lavadora): $139.900 (Ahorras $19.900)\n' +
-        '✨ KIT x3: $189.900 (Ahorras $50.000)\n\n' +
-        '¿La busca para 1 electrodoméstico o prefiere aprovechar la promoción del Kit x2?'
+        '🔥 KIT x2: $139.900 (Ahorra $19.900)\n\n' +
+        '¿La busca para nevera, lavadora o desea el Kit x2?'
       );
     }
   }

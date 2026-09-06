@@ -25,7 +25,7 @@ export class BotCoordinatorService implements IMessageHandler {
     private readonly aiService: IAiService,
     private readonly quickReplyService: QuickReplyService = new QuickReplyService(),
     private readonly followUpService: FollowUpService = new FollowUpService(45, 3),
-    debounceMs: number = 4500
+    debounceMs: number = 9000
   ) {
     this.debounceMs = debounceMs;
   }
@@ -243,7 +243,10 @@ export class BotCoordinatorService implements IMessageHandler {
 
         if (quickMatch.nextState) {
           this.quickReplyService.setState(unifiedMessage.remoteJid, quickMatch.nextState);
+        } else if (this.quickReplyService.getState(unifiedMessage.remoteJid) === 'NEW') {
+          this.quickReplyService.setState(unifiedMessage.remoteJid, 'PRICING_SENT');
         }
+        this.quickReplyService.markGreeted(unifiedMessage.remoteJid);
 
         // Si el cliente confirmó el pedido, desactivar el seguimiento para siempre
         if (quickMatch.intent === 'CONFIRM_ORDER') {
@@ -264,6 +267,8 @@ export class BotCoordinatorService implements IMessageHandler {
           unifiedMessage.senderName
         );
 
+        this.quickReplyService.markGreeted(unifiedMessage.remoteJid);
+
         // Si Gemini formuló el resumen de pedido o solicita confirmación, agregar botón interactivo
         if (responseText.includes('RESUMEN DE TU PEDIDO') || (responseText.includes('CONFIRMAR') && !responseText.includes('CONFIRMADO'))) {
           buttonsToAttach = [{ id: 'CONFIRMAR', displayText: '✅ CONFIRMAR PEDIDO' }];
@@ -272,6 +277,8 @@ export class BotCoordinatorService implements IMessageHandler {
           this.followUpService.markOrderCompleted(unifiedMessage.remoteJid);
           this.quickReplyService.setState(unifiedMessage.remoteJid, 'ORDER_CONFIRMED');
           console.log(`🎉 ¡PEDIDO CONFIRMADO EXITOSAMENTE VÍA IA PARA (+${unifiedMessage.senderNumber})!`);
+        } else if (this.quickReplyService.getState(unifiedMessage.remoteJid) === 'NEW') {
+          this.quickReplyService.setState(unifiedMessage.remoteJid, 'PRICING_SENT');
         }
       }
 

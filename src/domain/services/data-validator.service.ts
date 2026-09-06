@@ -442,28 +442,27 @@ export class DataValidatorService {
           ? foundName.split(' ')[0]
           : undefined;
 
-      const greeting = firstName ? `Con mucho gusto, ${firstName}. ` : `Con mucho gusto. `;
+      const greeting = firstName ? `Con gusto, ${firstName}. ` : `Con gusto. `;
 
-      // Construir resumen de datos ya capturados para dar tranquilidad y no repetir pedidos
       const alreadyCollected: string[] = [];
-      if (foundName && !this.isBlacklistedName(foundName)) alreadyCollected.push(`• Destinatario: ${foundName}`);
-      if (foundPhone) alreadyCollected.push(`• Teléfono: ${foundPhone}`);
+      if (foundName && !this.isBlacklistedName(foundName)) alreadyCollected.push(`nombre (${foundName})`);
+      if (foundPhone) alreadyCollected.push(`celular (${foundPhone})`);
       if (foundCity) {
-        const destDisplay = foundNeighborhood ? `${foundCity} (Barrio ${foundNeighborhood})` : foundCity;
-        alreadyCollected.push(`• Destino: ${destDisplay}`);
+        const destDisplay = foundNeighborhood ? `${foundCity} - ${foundNeighborhood}` : foundCity;
+        alreadyCollected.push(`destino (${destDisplay})`);
       }
-      if (foundAddress) alreadyCollected.push(`• Entrega: ${foundAddress}`);
+      if (foundAddress) alreadyCollected.push(`entrega (${foundAddress})`);
 
       let partialAck = '';
       if (alreadyCollected.length > 0) {
-        partialAck = `Ya tenemos registrado:\n${alreadyCollected.join('\n')}\n\n`;
+        partialAck = `Ya registramos su ${alreadyCollected.join(', ')}.\n\n`;
       }
 
       feedbackMessage =
         `${greeting}${partialAck}` +
-        `Para coordinar su entrega con *Envío Gratis* y pago contra entrega en efectivo, por favor facilítenos el siguiente dato faltante:\n\n` +
+        `Por favor facilítenos para programar el despacho:\n` +
         missing.map((f) => `• ${f}`).join('\n') +
-        `\n\n*(Recuerde que si lo prefiere, también podemos despachárselo para reclamar en la oficina de Interrapidísimo de su municipio 🚚📦)*`;
+        `\n\n*(Envío Gratis y pago contra entrega en efectivo 🚚)*`;
     }
 
     return {
