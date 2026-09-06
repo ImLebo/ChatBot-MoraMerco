@@ -259,7 +259,7 @@ export class BotCoordinatorService implements IMessageHandler {
           this.aiService.recordExchange(unifiedMessage.remoteJid, unifiedMessage.text, responseText);
         }
       } else {
-        source = '🧠 Gemini AI (3.6-flash)';
+        source = '🧠 Gemini AI (3.1-flash-lite)';
         // 2. Si es una duda compleja, objeción o flujo abierto, recurre a Gemini AI con el texto unificado
         responseText = await this.aiService.generateResponse(
           unifiedMessage.remoteJid,

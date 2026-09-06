@@ -14,7 +14,7 @@ export class GeminiService implements IAiService {
 
   constructor(
     private readonly apiKey?: string,
-    private readonly modelName: string = 'gemini-3.6-flash'
+    private readonly modelName: string = 'gemini-3.1-flash-lite'
   ) {
     if (this.apiKey && this.apiKey.trim().length > 0) {
       this.ai = new GoogleGenAI({ apiKey: this.apiKey.trim() });
