@@ -14,6 +14,7 @@ export interface IMessageSender {
     headerTitle?: string,
     footerText?: string
   ): Promise<void>;
+  sendImageMessage?(recipientJid: string, imagePath: string, caption?: string): Promise<void>;
   sendTypingState(recipientJid: string): Promise<void>;
 }
 

@@ -7,6 +7,7 @@ import makeWASocket, {
   normalizeMessageContent,
 } from '@whiskeysockets/baileys';
 import pino from 'pino';
+import fs from 'fs';
 import { AuthStateService } from './auth-state.service.js';
 import { QrService } from './qr.service.js';
 import { IMessageHandler, IMessageSender, IButtonOption } from '../../domain/services/message-handler.interface.js';
@@ -256,6 +257,24 @@ export class BaileysSocketService implements IMessageSender {
       console.log(`🔘 Botón interactivo de confirmación enviado a +${recipientJid.split('@')[0]}`);
     } catch (error) {
       console.warn('⚠️ No se pudo enviar el botón interactivo secundario:', error);
+    }
+  }
+
+  public async sendImageMessage(recipientJid: string, imagePath: string, caption?: string): Promise<void> {
+    if (!this.socket) {
+      throw new Error('Socket no inicializado');
+    }
+    if (fs.existsSync(imagePath)) {
+      const buffer = fs.readFileSync(imagePath);
+      const result = await this.socket.sendMessage(recipientJid, {
+        image: buffer,
+        caption: caption || '',
+      });
+      if (result?.key?.id) {
+        this.registerBotSentMessage(result.key.id);
+      }
+    } else {
+      await this.sendTextMessage(recipientJid, caption || '');
     }
   }
 

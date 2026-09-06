@@ -29,8 +29,8 @@ export class GeminiService implements IAiService {
     // Si no se ha configurado la API Key, dar respuesta de contingencia
     if (!this.ai) {
       return (
-        `👋 ¡Hola ${senderName || ''}! Gracias por comunicarte con MoraMerco.\n\n` +
-        `📦 Manejamos Base Móvil para Nevera a $79.900 y Kit x2 a $139.900 con ENVÍO GRATIS y PAGO CONTRA ENTREGA.\n\n` +
+        `¡Hola! Soy Maria Paula, bienvenido a MoraMerco 😊\n\n` +
+        `📦 Manejamos Base Móvil para Nevera a $79.900 y Kit x2 a $139.900 con ENVÍO GRATIS y PAGO CONTRA ENTREGA en efectivo.\n\n` +
         `⚠️ (Nota: Configura tu GEMINI_API_KEY en el archivo .env para activar las respuestas con IA).`
       );
     }
@@ -94,11 +94,11 @@ export class GeminiService implements IAiService {
     } catch (error) {
       console.error(`❌ Error en Gemini AI para el chat [${senderId}]:`, error);
       return (
-        'Manejamos estas opciones con *Envío Gratis* y pago contra entrega 🚚:\n' +
-        '🔹 1 Unidad: $79.900\n' +
+        '¡Hola! Soy Maria Paula, bienvenido a MoraMerco 😊 Con el mayor gusto le comparto nuestras opciones con *Envío Gratis* y pago contra entrega en efectivo 🚚:\n\n' +
+        '🔹 1 Base: $79.900\n' +
         '🔥 KIT x2 (Nevera + Lavadora): $139.900 (Ahorras $19.900)\n' +
-        '✨ KIT x3: $189.900\n\n' +
-        '¿Cuál de las opciones te apartamos o cuántas necesitas?'
+        '✨ KIT x3: $189.900 (Ahorras $50.000)\n\n' +
+        '¿La busca para 1 electrodoméstico o prefiere aprovechar la promoción del Kit x2?'
       );
     }
   }

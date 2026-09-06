@@ -288,8 +288,10 @@ export class BotCoordinatorService implements IMessageHandler {
       const typingTime = Math.min(Math.max(responseText.length * 20, 1500), 3500);
       await this.sleep(typingTime);
 
-      // 6. Enviar respuesta final con botón interactivo si aplica, o como texto plano
-      if (buttonsToAttach && buttonsToAttach.length > 0) {
+      // 6. Enviar respuesta final con imagen si aplica, con botón interactivo si aplica, o como texto plano
+      if (quickMatch?.mediaPath && sender.sendImageMessage) {
+        await sender.sendImageMessage(unifiedMessage.remoteJid, quickMatch.mediaPath, responseText);
+      } else if (buttonsToAttach && buttonsToAttach.length > 0) {
         await sender.sendInteractiveButtons(
           unifiedMessage.remoteJid,
           responseText,
