@@ -101,7 +101,7 @@ export class FollowUpService {
       messageText =
         `Estimado/a cliente, reciba un cordial saludo de parte de MoraMerco 😊\n\n` +
         `Le escribo con el mayor agrado para consultarle si le quedó alguna inquietud acerca de las medidas o el funcionamiento de la base para sus electrodomésticos.\n\n` +
-        `Recuerde que al ser ajustable de 40 a 70 cm y soportar hasta 200 kg, se adapta perfectamente a su nevera o lavadora y protege sus pisos contra la humedad y rayones. Quedo muy atenta a sus indicaciones ✨`;
+        `Recuerde que al ser barras de acero independientes y telescópicas con 24 ruedas y frenos, se adaptan a cualquier nevera o lavadora sin esfuerzo ni herramientas, elevan 4 cm para trapear sabroso sin matarse la espalda y protegen sus equipos del óxido. Quedo muy atenta a sus indicaciones ✨`;
     } else if (stage === 2) {
       messageText =
         `Buen día, le saluda nuevamente Maria Paula de MoraMerco 👋\n\n` +

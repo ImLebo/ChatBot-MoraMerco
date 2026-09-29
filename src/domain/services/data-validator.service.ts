@@ -1,3 +1,5 @@
+import { FuzzyMatcherService } from './fuzzy-matcher.service.js';
+
 export interface CustomerShippingData {
   isValid: boolean;
   name?: string;
@@ -10,6 +12,9 @@ export interface CustomerShippingData {
   officeName?: string;
   missingFields: string[];
   feedbackMessage?: string;
+  hasPendingDoubt?: boolean;
+  doubtTopic?: 'COMPATIBILITY_WEIGHT' | 'KIT_PRICE' | 'PAYMENT' | 'SHIPPING' | 'WARRANTY' | 'MEASUREMENTS' | 'INSTALLATION' | 'OFFICE_DELIVERY' | 'OTHER';
+  doubtAnswer?: string;
 }
 
 export class DataValidatorService {
@@ -110,23 +115,74 @@ export class DataValidatorService {
   /**
    * Palabras que NUNCA deben interpretarse como nombres de personas
    */
-  private static readonly BLACKLISTED_NAME_WORDS = new Set([
-    'interrapidisimo', 'enterrapidicimo', 'interapidisimo', 'inter', 'rapidisimo',
-    'servientrega', 'coordinadora', 'envia', 'tcc', 'deprisa', 'veloces',
-    'oficina', 'sucursal', 'agencia', 'bodega', 'reclamo', 'recoger', 'entrega',
+  public static readonly BLACKLISTED_NAME_WORDS = new Set([
+    // Transportadoras y logística
+    'interrapidisimo', 'enterrapidicimo', 'interapidisimo', 'inter rapidisimo',
+    'inter-rapidisimo', 'inter', 'rapidisimo', 'servientrega', 'coordinadora',
+    'envia', 'tcc', 'deprisa', 'veloces', 'oficina', 'sucursal', 'agencia',
+    'bodega', 'reclamo', 'recoger', 'entrega', 'entregar', 'despacho', 'despachar',
+    'envio', 'enviar', 'mandar', 'mande', 'mandeme', 'envieme', 'llega', 'llegar',
+
+    // Vías y nomenclatura de direcciones
     'calle', 'carrera', 'cra', 'cll', 'cr', 'cl', 'diagonal', 'diag', 'dg',
     'transversal', 'transv', 'tv', 'avenida', 'av', 'barrio', 'casa', 'apto',
     'apartamento', 'manzana', 'mz', 'lote', 'km', 'kilometro', 'vereda', 'finca',
+    'autopista', 'callejon', 'pasaje', 'sector', 'etapa', 'bloque', 'torre', 'piso',
+    'interior', 'int',
+
+    // Teléfono y contacto
     'selular', 'celular', 'tel', 'telefono', 'contacto', 'whatsapp', 'numero',
+
+    // Saludos, cortesía y despedidas
     'hola', 'buenas', 'buenos', 'tardes', 'dias', 'noches', 'gracias', 'favor',
-    'por', 'pedido', 'base', 'nevera', 'lavadora', 'kit', 'si', 'confirmar',
-    'nombre', 'direccion', 'ciudad', 'municipio', 'departamento', 'santander',
-    'boyaca', 'cundinamarca', 'antioquia', 'colombia', 'medellin', 'bogota', 'cali',
-    // Peticiones de fotos, amabilidad o acciones que los clientes escriben
-    'envieme', 'mandeme', 'compartame', 'regaleme', 'muestreme', 'pase', 'paseme',
-    'enviar', 'mandar', 'compartir', 'ver', 'mostrar', 'foto', 'fotos', 'fotp',
-    'fotico', 'foticos', 'imagen', 'imagenes', 'video', 'videos', 'catalogo',
-    'muchas', 'mil', 'amable', 'porfa', 'muy'
+    'porfa', 'porfavor', 'amable', 'muchas', 'mil', 'cordial', 'saludos', 'feliz',
+
+    // Artículos y pronombres en español
+    'el', 'la', 'los', 'las', 'un', 'una', 'uno', 'unos', 'unas',
+    'yo', 'tu', 'usted', 'ustedes', 'ella', 'ellos', 'ellas',
+    'me', 'te', 'se', 'nos', 'le', 'les', 'lo', 'mi', 'mis', 'su', 'sus',
+
+    // Preposiciones y conjunciones
+    'a', 'al', 'ante', 'bajo', 'cabe', 'con', 'contra', 'de', 'del', 'desde',
+    'durante', 'en', 'entre', 'hacia', 'hasta', 'mediante', 'para', 'por',
+    'segun', 'sin', 'so', 'sobre', 'tras', 'versus', 'via',
+    'y', 'e', 'ni', 'o', 'u', 'i', 'que', 'q', 'k', 'pero', 'sino', 'aunque',
+    'porque', 'ya', 'si',
+
+    // Verbos comunes de consulta, compra y acción
+    'cuesta', 'cuestan', 'costo', 'costos', 'costaria', 'costar', 'vale', 'valen',
+    'sale', 'salen', 'tiene', 'tienen', 'tendra', 'hay', 'habria', 'es', 'son',
+    'era', 'ser', 'estar', 'esta', 'estan', 'repito', 'repetir', 'digo', 'dice',
+    'decir', 'pregunto', 'pregunta', 'preguntas', 'duda', 'dudas', 'saber',
+    'entiendo', 'hacer', 'hace', 'pago', 'pagar', 'paga', 'cancela', 'cancelar',
+    'sirve', 'servir', 'aguanta', 'aguantar', 'soporta', 'soportar', 'pesa', 'pesar',
+    'quiero', 'deseo', 'necesito', 'busca', 'busco', 'mandame', 'envieme', 'regaleme',
+    'dame', 'deme', 'dar', 'pase', 'paseme', 'pasar', 'ver', 'mirar', 'mostrar',
+    'muestreme', 'compartir', 'compartame', 'trae', 'traer', 'vienen', 'viene',
+    'funciona', 'oxida', 'vibra', 'vibrar', 'mover', 'mueve', 'frena', 'armar',
+    'instalar', 'quedo', 'queda', 'quedan', 'puede', 'pueden',
+
+    // Palabras comerciales y productos
+    'pedido', 'base', 'bases', 'barra', 'barras', 'par', 'pares', 'nevera', 'lavadora', 'secadora', 'estufa',
+    'kit', 'combo', 'promo', 'promocion', 'unidad', 'unidades', 'precio', 'precios',
+    'valor', 'cuanto', 'cuanta', 'cuantos', 'cuantas', 'como', 'cuando', 'donde',
+    'cual', 'cuales', 'quien', 'quienes', 'ambos', 'ambas', 'solo', 'solamente',
+    'nequi', 'bancolombia', 'daviplata', 'efectivo', 'contraentrega', 'pesos',
+    'cop', 'dinero', 'plata', 'transferencia', 'tarjeta', 'cuota', 'cuotas',
+
+    // Características técnicas y consultas
+    'foto', 'fotos', 'fotp', 'fotico', 'foticos', 'imagen', 'imagenes', 'video',
+    'videos', 'catalogo', 'medida', 'medidas', 'tamano', 'alto', 'altura', 'ancho',
+    'largo', 'dimension', 'dimensiones', 'kilo', 'kilos', 'kg', 'libra', 'libras',
+    'peso', 'acero', 'metal', 'metalica', 'plastico', 'rueda', 'ruedas', 'freno',
+    'frenos', 'centrifugado', 'centrifugar', 'garantia', 'seguro', 'seguridad',
+    'confiable', 'estafa', 'calidad', 'original', 'resiste', 'resistente',
+
+    // Respuestas cortas o estados
+    'si', 'no', 'ok', 'listo', 'dale', 'bueno', 'bien', 'mal', 'malo', 'mejor',
+    'peor', 'claro', 'correcto', 'perfecto', 'excelente', 'caro', 'barato',
+    'rebaja', 'descuento', 'pensar', 'pensarlo', 'afan', 'luego', 'ahora',
+    'despues', 'espera', 'cambio', 'cambiar'
   ]);
 
   /**
@@ -157,6 +213,73 @@ export class DataValidatorService {
   }
 
   /**
+   * Determina de manera estricta si un mensaje contiene datos de envío reales
+   * (celular, dirección con números, oficina de transportadora o formulario multilínea)
+   */
+  public static isLikelyShippingData(rawText: string): boolean {
+    const norm = this.normalize(rawText);
+    const lines = rawText.split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
+
+    // 1. Detectar celular colombiano válido (10 dígitos empezando por 3 o formato con 57, o typo p/o al final)
+    const phoneCleaned = rawText.replace(/[^\d]/g, ' ');
+    const phoneCandidates = phoneCleaned.split(/\s+/).filter((num) => num.length >= 7);
+    const rawTokens = rawText.split(/\s+/);
+    const hasPhone =
+      phoneCandidates.some(
+        (c) => (c.length === 10 && c.startsWith('3')) || (c.length === 12 && c.startsWith('573'))
+      ) || rawTokens.some((t) => /^3\d{8}[poPOlLiI]$/.test(t));
+
+    // 2. Detectar vía o nomenclatura con número (incluyendo variantes fonéticas colombianas como caye, krra, etc.)
+    const hasRoadWithNumber =
+      /(?:calle|caye|carrera|karrera|cra|crra|krra|kra|cll|clle|cr|cl|diagonal|diag|dg|transversal|transv|tv|avenida|av|autopista)\s*#?\s*\d+/i.test(norm) ||
+      /(?:manzana|mz)\s*[a-zA-Z0-9]+\s*(?:casa|lote)?\s*\d*/i.test(norm) ||
+      /(?:vereda|finca)\s+[a-zA-Z]+/i.test(norm);
+
+    // 3. Detectar mención de entrega o reclamo en oficina de transportadora
+    const isOffice = this.OFFICE_TRANSPORTADORA_KEYWORDS.some((kw) =>
+      new RegExp(`\\b${kw}\\b`, 'i').test(norm)
+    );
+    const hasOfficeDelivery =
+      isOffice &&
+      (norm.includes('oficina') ||
+        norm.includes('ofisina') ||
+        norm.includes('reclamo') ||
+        norm.includes('agencia') ||
+        norm.includes('sucursal') ||
+        norm.includes('recoger'));
+
+    // 4. Si el mensaje contiene una duda u objeción explícita:
+    const isDoubtOrObjection =
+      FuzzyMatcherService.hasQuestionOrDoubt(rawText) ||
+      /\b(muy caro|caro|pensar|pensarlo|ya no quiero|no gracias|luego aviso)\b/i.test(norm);
+
+    if (isDoubtOrObjection) {
+      // Solo admitir como datos de envío si simultáneamente contiene celular y (dirección con número o entrega en oficina)
+      if (!(hasPhone && (hasRoadWithNumber || hasOfficeDelivery))) {
+        return false;
+      }
+    }
+
+    if (hasPhone) return true;
+    if (hasRoadWithNumber) return true;
+    if (hasOfficeDelivery) return true;
+
+    // 5. Si contiene etiquetas explícitas de formulario de envío
+    if (/(?:nombre|recibe|destinatario|ciudad|municipio|direccion|celular|telefono)\s*:/i.test(rawText)) {
+      return true;
+    }
+
+    // 6. Si es un mensaje multilínea (>= 2 líneas) y alguna línea menciona una ciudad o departamento colombiano
+    if (lines.length >= 2) {
+      const mentionsCity = this.COLOMBIAN_CITIES.some((c) => new RegExp(`\\b${c}\\b`, 'i').test(norm)) ||
+                           this.COLOMBIAN_DEPARTMENTS.some((d) => new RegExp(`\\b${d}\\b`, 'i').test(norm));
+      if (mentionsCity) return true;
+    }
+
+    return false;
+  }
+
+  /**
    * Valida la coherencia de los datos de envío proporcionados por el cliente,
    * permitiendo fusionar información acumulada en turnos previos.
    */
@@ -164,6 +287,13 @@ export class DataValidatorService {
     const lines = rawText.split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
     const normalizedFull = this.normalize(rawText);
     const missing: string[] = [];
+
+    // =========================================================================
+    // 0. DETECCIÓN DE PREGUNTA O DUDA ADICIONAL EN EL MENSAJE
+    // =========================================================================
+    const hasPendingDoubt = FuzzyMatcherService.hasQuestionOrDoubt(rawText);
+    const doubtTopic = hasPendingDoubt ? FuzzyMatcherService.detectDoubtTopic(rawText) : undefined;
+    const doubtAnswer = doubtTopic ? FuzzyMatcherService.getDoubtAnswer(doubtTopic) : undefined;
 
     // =========================================================================
     // 1. VALIDACIÓN DE TELÉFONO CELULAR (CON CORRECCIÓN DE ERRORES TIPOGRÁFICOS)
@@ -251,7 +381,45 @@ export class DataValidatorService {
       }
     }
 
-    // C. Si menciona únicamente un departamento reconocido (ej: "Santander")
+    // C. Búsqueda difusa para municipios con mala ortografía (ej: "vogota", "bukaramanga", "medelljin", "suayta")
+    if (!foundCity) {
+      const tokens = normalizedFull.split(/\s+/).filter((t) => t.length >= 3);
+      for (const token of tokens) {
+        if (token.length < 4) continue;
+        // Evitar comparar vías y stopwords
+        if (this.BLACKLISTED_NAME_WORDS.has(token) || ['calle', 'carrera', 'cra', 'barrio'].includes(token)) continue;
+
+        const bestCityMatch = FuzzyMatcherService.findBestMatch(token, this.COLOMBIAN_CITIES, 0.80);
+        if (bestCityMatch) {
+          foundCity = this.capitalizeWords(bestCityMatch);
+          for (const dept of this.COLOMBIAN_DEPARTMENTS) {
+            if (new RegExp(`\\b${dept}\\b`, 'i').test(normalizedFull) && dept !== bestCityMatch) {
+              foundDepartment = this.capitalizeWords(dept);
+              foundCity = `${foundCity}, ${foundDepartment}`;
+              break;
+            }
+          }
+          break;
+        }
+      }
+
+      // Probar bigramas para municipios compuestos (ej: "san jil" -> "san gil", "valle dupar" -> "valledupar")
+      if (!foundCity && tokens.length >= 2) {
+        for (let i = 0; i < tokens.length - 1; i++) {
+          const bigram = `${tokens[i]} ${tokens[i + 1]}`;
+          const fused = `${tokens[i]}${tokens[i + 1]}`;
+          const matchBigram =
+            FuzzyMatcherService.findBestMatch(bigram, this.COLOMBIAN_CITIES, 0.80) ||
+            FuzzyMatcherService.findBestMatch(fused, this.COLOMBIAN_CITIES, 0.80);
+          if (matchBigram) {
+            foundCity = this.capitalizeWords(matchBigram);
+            break;
+          }
+        }
+      }
+    }
+
+    // D. Si menciona únicamente un departamento reconocido o con error leve (ej: "Santander", "Cundinamarca")
     if (!foundCity) {
       for (const dept of this.COLOMBIAN_DEPARTMENTS) {
         const regex = new RegExp(`\\b${dept}\\b`, 'i');
@@ -259,6 +427,18 @@ export class DataValidatorService {
           foundDepartment = this.capitalizeWords(dept);
           foundCity = foundDepartment;
           break;
+        }
+      }
+
+      if (!foundCity) {
+        const tokens = normalizedFull.split(/\s+/).filter((t) => t.length >= 4);
+        for (const token of tokens) {
+          const bestDept = FuzzyMatcherService.findBestMatch(token, this.COLOMBIAN_DEPARTMENTS, 0.84);
+          if (bestDept) {
+            foundDepartment = this.capitalizeWords(bestDept);
+            foundCity = foundDepartment;
+            break;
+          }
         }
       }
     }
@@ -340,7 +520,7 @@ export class DataValidatorService {
     } else {
       // Entrega estándar a domicilio con nomenclatura
       const hasRoadWithNumber =
-        /(?:calle|carrera|cra|cll|cr|cl|diagonal|diag|dg|transversal|transv|tv|avenida|av|autopista)\s*#?\s*\d+/i.test(normalizedFull) ||
+        /(?:calle|caye|carrera|karrera|cra|crra|krra|kra|cll|clle|cr|cl|diagonal|diag|dg|transversal|transv|tv|avenida|av|autopista)\s*#?\s*\d+/i.test(normalizedFull) ||
         /(?:manzana|mz)\s*[a-zA-Z0-9]+\s*(?:casa|lote)?\s*\d*/i.test(normalizedFull) ||
         /(?:km|kilometro)\s*\d+/i.test(normalizedFull) ||
         /(?:vereda|finca)\s+[a-zA-Z]+/i.test(normalizedFull) ||
@@ -353,7 +533,7 @@ export class DataValidatorService {
 
       if (hasRoadWithNumber && hasNumbers && !isPlaceholder) {
         const roadMatch = rawText.match(
-          /(?:calle|carrera|cra|cll|cr|cl|diagonal|diag|dg|transversal|transv|tv|avenida|av|autopista|manzana|mz|vereda|finca|km)[\s#\-a-zA-Z0-9]*/i
+          /(?:calle|caye|carrera|karrera|cra|crra|krra|kra|cll|clle|cr|cl|diagonal|diag|dg|transversal|transv|tv|avenida|av|autopista|manzana|mz|vereda|finca|km)[\s#\-a-zA-Z0-9]*/i
         );
         let cleanRoad = roadMatch ? roadMatch[0].trim() : 'Dirección con nomenclatura confirmada';
         if (foundCity && roadMatch) {
@@ -378,11 +558,17 @@ export class DataValidatorService {
     // 5. VALIDACIÓN DE NOMBRE DE CLIENTE
     // =========================================================================
     let foundName: string | undefined = previousData?.name;
+    // Si el nombre previamente almacenado contiene palabras prohibidas (ej. "El Cuesta"), purgarlo
+    if (foundName && (this.isBlacklistedName(foundName) || foundName.length < 3)) {
+      foundName = undefined;
+    }
 
-    // Si aún no tenemos un nombre válido previo, intentamos extraerlo de forma inteligente
+    // Si aún no tenemos un nombre válido previo, intentamos extraerlo de forma rigurosa
     if (!foundName || foundName.length < 3) {
-      // Si el cliente puso explícitamente "Nombre: ..."
-      const nameExplicitMatch = rawText.match(/(?:nombre|recibe|destinatario)\s*:\s*([a-zA-ZñáéíóúÁÉÍÓÚ\s]{3,40})/i);
+      // A. Si el cliente puso explícitamente "Nombre: ...", "Recibe: ...", "Me llamo ...", "A nombre de ..."
+      const nameExplicitMatch = rawText.match(
+        /(?:nombre(?:\s+completo|\s+y\s+apellido)?|recibe|destinatario|a\s+nombre\s+de|me\s+llamo|mi\s+nombre\s+es)\s*[:=\-]?\s*([a-zA-ZñáéíóúÁÉÍÓÚ\s]{3,40})/i
+      );
       if (nameExplicitMatch && nameExplicitMatch[1]) {
         const candidate = nameExplicitMatch[1].trim();
         if (!this.isBlacklistedName(candidate)) {
@@ -390,37 +576,82 @@ export class DataValidatorService {
         }
       }
 
-      // Si no, analizar palabras y descartar números, transportadoras, vías, barrios y municipios
-      if (!foundName) {
-        const rawWords = rawText.split(/\s+/).map((w) => w.trim());
-        const validNameWords: string[] = [];
+      // B. En mensajes multilínea, buscar si una línea aislada corresponde al nombre (2 a 4 palabras alfabéticas limpias)
+      if (!foundName && lines.length >= 2) {
+        for (const line of lines) {
+          const trimmedLine = line.trim();
+          if (/\d/.test(trimmedLine)) continue;
+          if (this.isBlacklistedName(trimmedLine)) continue;
+          const normLine = this.normalize(trimmedLine);
+          if (this.COLOMBIAN_CITIES.includes(normLine) || this.COLOMBIAN_DEPARTMENTS.includes(normLine)) continue;
 
-        for (const word of rawWords) {
-          const cleanWord = this.normalize(word);
-          if (!cleanWord || cleanWord.length < 2) continue;
-          if (/\d/.test(cleanWord)) continue;
-          if (this.BLACKLISTED_NAME_WORDS.has(cleanWord)) continue;
-          if (this.COLOMBIAN_CITIES.includes(cleanWord)) continue;
-          if (this.COLOMBIAN_DEPARTMENTS.includes(cleanWord)) continue;
+          // Separar palabras limpiando signos de puntuación (comas, puntos)
+          const words = trimmedLine
+            .split(/\s+/)
+            .map((w) => w.replace(/^[^\wáéíóúÁÉÍÓÚñÑ]+|[^\wáéíóúÁÉÍÓÚñÑ]+$/g, ''))
+            .filter(Boolean);
 
-          // Descartar si coincide con el barrio detectado
-          if (foundNeighborhood && this.normalize(foundNeighborhood).includes(cleanWord)) continue;
-
-          // Solo letras alfabéticas
-          if (/^[a-zA-ZñáéíóúÁÉÍÓÚ]+$/.test(word)) {
-            validNameWords.push(word);
+          if (words.length >= 2 && words.length <= 4) {
+            const allWordsValid = words.every((w) => {
+              const nw = this.normalize(w);
+              return /^[a-zA-ZñáéíóúÁÉÍÓÚ]+$/.test(w) &&
+                     !this.BLACKLISTED_NAME_WORDS.has(nw) &&
+                     !this.COLOMBIAN_CITIES.includes(nw) &&
+                     !this.COLOMBIAN_DEPARTMENTS.includes(nw);
+            });
+            if (allWordsValid) {
+              foundName = this.capitalizeWords(words.join(' '));
+              break;
+            }
           }
         }
+      }
 
-        // Si encontramos entre 1 y 4 palabras consecutivas que parecen nombre y apellido
-        if (validNameWords.length >= 2) {
-          const joinedCandidate = validNameWords.slice(0, 4).join(' ');
-          if (!this.isBlacklistedName(joinedCandidate)) {
-            foundName = this.capitalizeWords(joinedCandidate);
+      // C. En mensaje de una sola línea con datos completos (ej: "Carlos Perez, Carrera 15 # 40-20, Bogota, 3101234567")
+      if (!foundName) {
+        const roadOrNumberMatch = rawText.search(
+          /(?:calle|carrera|cra|cll|cr|cl|diagonal|transversal|av|avenida|mz|manzana|vereda|finca|oficina|interrapidisimo|\d{3,})/i
+        );
+        if (roadOrNumberMatch > 3) {
+          const prefix = rawText.substring(0, roadOrNumberMatch).trim();
+          const cleanTokens = prefix
+            .split(/\s+/)
+            .map((w) => w.replace(/^[^\wáéíóúÁÉÍÓÚñÑ]+|[^\wáéíóúÁÉÍÓÚñÑ]+$/g, ''))
+            .filter(Boolean);
+
+          if (cleanTokens.length >= 2 && cleanTokens.length <= 4) {
+            const allValid = cleanTokens.every((w) => {
+              const nw = this.normalize(w);
+              return /^[a-zA-ZñáéíóúÁÉÍÓÚ]+$/.test(w) &&
+                     !this.BLACKLISTED_NAME_WORDS.has(nw) &&
+                     !this.COLOMBIAN_CITIES.includes(nw) &&
+                     !this.COLOMBIAN_DEPARTMENTS.includes(nw);
+            });
+            if (allValid && !this.isBlacklistedName(cleanTokens.join(' '))) {
+              foundName = this.capitalizeWords(cleanTokens.join(' '));
+            }
           }
-        } else if (validNameWords.length === 1 && lines.length === 1 && validNameWords[0].length >= 3) {
-          if (!this.isBlacklistedName(validNameWords[0])) {
-            foundName = this.capitalizeWords(validNameWords[0]);
+        }
+      }
+
+      // D. Si el mensaje completo es únicamente un nombre propio de 2 o 3 palabras (sin números ni signos de pregunta)
+      if (!foundName && lines.length === 1 && !/\d/.test(rawText) && !rawText.includes('?')) {
+        const cleanTokens = rawText
+          .trim()
+          .split(/\s+/)
+          .map((w) => w.replace(/^[^\wáéíóúÁÉÍÓÚñÑ]+|[^\wáéíóúÁÉÍÓÚñÑ]+$/g, ''))
+          .filter(Boolean);
+
+        if (cleanTokens.length >= 2 && cleanTokens.length <= 3) {
+          const allValid = cleanTokens.every((w) => {
+            const nw = this.normalize(w);
+            return /^[a-zA-ZñáéíóúÁÉÍÓÚ]+$/.test(w) &&
+                   !this.BLACKLISTED_NAME_WORDS.has(nw) &&
+                   !this.COLOMBIAN_CITIES.includes(nw) &&
+                   !this.COLOMBIAN_DEPARTMENTS.includes(nw);
+          });
+          if (allValid && !this.isBlacklistedName(cleanTokens.join(' '))) {
+            foundName = this.capitalizeWords(cleanTokens.join(' '));
           }
         }
       }
@@ -437,15 +668,11 @@ export class DataValidatorService {
 
     let feedbackMessage: string | undefined;
     if (!isValid) {
-      const firstName =
-        foundName && !this.isBlacklistedName(foundName)
-          ? foundName.split(' ')[0]
-          : undefined;
-
-      const greeting = firstName ? `Con gusto, ${firstName}. ` : `Con gusto. `;
-
       const alreadyCollected: string[] = [];
-      if (foundName && !this.isBlacklistedName(foundName)) alreadyCollected.push(`nombre (${foundName})`);
+      // Solo reconocer el nombre si es un nombre legítimo de al menos 2 palabras
+      if (foundName && !this.isBlacklistedName(foundName) && foundName.split(' ').length >= 2) {
+        alreadyCollected.push(`nombre (${foundName})`);
+      }
       if (foundPhone) alreadyCollected.push(`celular (${foundPhone})`);
       if (foundCity) {
         const destDisplay = foundNeighborhood ? `${foundCity} - ${foundNeighborhood}` : foundCity;
@@ -459,7 +686,7 @@ export class DataValidatorService {
       }
 
       feedbackMessage =
-        `${greeting}${partialAck}` +
+        `Con mucho gusto. ${partialAck}` +
         `Por favor facilítenos para programar el despacho:\n` +
         missing.map((f) => `• ${f}`).join('\n') +
         `\n\n*(Envío Gratis y pago contra entrega en efectivo 🚚)*`;
@@ -477,6 +704,9 @@ export class DataValidatorService {
       officeName,
       missingFields: missing,
       feedbackMessage,
+      hasPendingDoubt,
+      doubtTopic,
+      doubtAnswer,
     };
   }
 

@@ -29,8 +29,8 @@ export class GeminiService implements IAiService {
     // Si no se ha configurado la API Key, dar respuesta de contingencia
     if (!this.ai) {
       return (
-        `¡Hola! Soy Maria Paula, bienvenido a MoraMerco 😊\n\n` +
-        `📦 Manejamos Base Móvil para Nevera a $79.900 y Kit x2 a $139.900 con ENVÍO GRATIS y PAGO CONTRA ENTREGA en efectivo.\n\n` +
+        `¡Hola! Soy Maria Paula de MoraMerco 😊\n\n` +
+        `📦 Manejamos Base Ajustable de Acero (Par de Barras Telescópicas con 24 Ruedas): Combo x1 a $69.900 y Combo Dúo (x2 Pares) a $119.900 con ENVÍO GRATIS y PAGO CONTRA ENTREGA en efectivo.\n\n` +
         `⚠️ (Nota: Configura tu GEMINI_API_KEY en el archivo .env para activar las respuestas con IA).`
       );
     }
@@ -110,15 +110,15 @@ export class GeminiService implements IAiService {
       console.error(`❌ Error en Gemini AI para el chat [${senderId}]:`, error);
       if (this.conversationHistory.get(senderId) && this.conversationHistory.get(senderId)!.length > 1) {
         return (
-          'Con gusto le confirmo: 1 Base le queda en *$79.900* o el Kit x2 en *$139.900* con Envío Gratis y pago en casa 🚚\n\n' +
-          '¿Desea que le apartemos 1 Base o prefiere el Kit x2?'
+          'Con gusto le confirmo: el Combo x1 (1 Par de Barras) le queda en *$69.900* o el Combo Dúo x2 (Nevera + Lavadora) en *$119.900* con Envío Gratis y pago en casa 🚚\n\n' +
+          '¿Desea que le apartemos 1 Par o prefiere el Combo Dúo x2?'
         );
       }
       return (
-        '¡Hola! Soy Maria Paula, bienvenido a MoraMerco 😊 Con gusto le comparto nuestras opciones con Envío Gratis y pago contra entrega en efectivo 🚚:\n\n' +
-        '🔹 1 Base: $79.900\n' +
-        '🔥 KIT x2: $139.900 (Ahorra $19.900)\n\n' +
-        '¿La busca para nevera, lavadora o desea el Kit x2?'
+        '¡Hola! Soy Maria Paula de MoraMerco 😊 Con gusto le comparto nuestras ofertas con Envío Gratis y pago contra entrega en efectivo 🚚:\n\n' +
+        '🔹 Combo x1 (1 Par de Barras): $69.900\n' +
+        '🔥 Combo Dúo (x2 Pares - Nevera + Lavadora): $119.900 (Ahorra $20.000)\n\n' +
+        '¿Las busca para 1 electrodoméstico o desea aprovechar el Combo Dúo?'
       );
     }
   }
