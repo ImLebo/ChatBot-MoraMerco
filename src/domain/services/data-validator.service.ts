@@ -100,6 +100,38 @@ export class DataValidatorService {
   ];
 
   /**
+   * Mapeo de capitales de Colombia a su departamento oficial
+   */
+  public static readonly CAPITAL_DEPARTMENTS: Record<string, string> = {
+    bogota: 'Cundinamarca',
+    medellin: 'Antioquia',
+    cali: 'Valle del Cauca',
+    barranquilla: 'Atlántico',
+    cartagena: 'Bolívar',
+    bucaramanga: 'Santander',
+    pereira: 'Risaralda',
+    manizales: 'Caldas',
+    ibague: 'Tolima',
+    cucuta: 'Norte de Santander',
+    pasto: 'Nariño',
+    neiva: 'Huila',
+    villavicencio: 'Meta',
+    armenia: 'Quindío',
+    valledupar: 'Cesar',
+    monteria: 'Córdoba',
+    sincelejo: 'Sucre',
+    popayan: 'Cauca',
+    tunja: 'Boyacá',
+    riohacha: 'La Guajira',
+    florencia: 'Caquetá',
+    quibdo: 'Chocó',
+    yopal: 'Casanare',
+    mocoa: 'Putumayo',
+    arauca: 'Arauca',
+    leticia: 'Amazonas',
+  };
+
+  /**
    * Palabras clave que identifican entrega en oficinas de transportadoras
    * o nombres de las transportadoras oficiales
    */
@@ -239,14 +271,12 @@ export class DataValidatorService {
     const isOffice = this.OFFICE_TRANSPORTADORA_KEYWORDS.some((kw) =>
       new RegExp(`\\b${kw}\\b`, 'i').test(norm)
     );
-    const hasOfficeDelivery =
-      isOffice &&
-      (norm.includes('oficina') ||
-        norm.includes('ofisina') ||
-        norm.includes('reclamo') ||
-        norm.includes('agencia') ||
-        norm.includes('sucursal') ||
-        norm.includes('recoger'));
+    const hasOfficeDelivery = isOffice;
+
+    // Detectar si menciona alguna ciudad o departamento colombiano
+    const mentionsCity =
+      this.COLOMBIAN_CITIES.some((c) => new RegExp(`\\b${c}\\b`, 'i').test(norm)) ||
+      this.COLOMBIAN_DEPARTMENTS.some((d) => new RegExp(`\\b${d}\\b`, 'i').test(norm));
 
     // 4. Si el mensaje contiene una duda u objeción explícita:
     const isDoubtOrObjection =
@@ -254,8 +284,8 @@ export class DataValidatorService {
       /\b(muy caro|caro|pensar|pensarlo|ya no quiero|no gracias|luego aviso)\b/i.test(norm);
 
     if (isDoubtOrObjection) {
-      // Solo admitir como datos de envío si simultáneamente contiene celular y (dirección con número o entrega en oficina)
-      if (!(hasPhone && (hasRoadWithNumber || hasOfficeDelivery))) {
+      // Solo admitir si simultáneamente contiene celular y (dirección con número, oficina o ciudad)
+      if (!(hasPhone && (hasRoadWithNumber || hasOfficeDelivery || mentionsCity))) {
         return false;
       }
     }
@@ -271,8 +301,6 @@ export class DataValidatorService {
 
     // 6. Si es un mensaje multilínea (>= 2 líneas) y alguna línea menciona una ciudad o departamento colombiano
     if (lines.length >= 2) {
-      const mentionsCity = this.COLOMBIAN_CITIES.some((c) => new RegExp(`\\b${c}\\b`, 'i').test(norm)) ||
-                           this.COLOMBIAN_DEPARTMENTS.some((d) => new RegExp(`\\b${d}\\b`, 'i').test(norm));
       if (mentionsCity) return true;
     }
 
@@ -359,6 +387,11 @@ export class DataValidatorService {
             foundCity = `${foundCity}, ${foundDepartment}`;
             break;
           }
+        }
+        // Si no mencionó departamento pero es una capital mapeada (ej. Manizales -> Caldas)
+        if (!foundDepartment && this.CAPITAL_DEPARTMENTS[city]) {
+          foundDepartment = this.CAPITAL_DEPARTMENTS[city];
+          foundCity = `${foundCity}, ${foundDepartment}`;
         }
         break;
       }
@@ -448,114 +481,7 @@ export class DataValidatorService {
     }
 
     // =========================================================================
-    // 3. DETECCIÓN DE BARRIO O SECTOR
-    // =========================================================================
-    let foundNeighborhood: string | undefined = previousData?.neighborhood;
-    for (const line of lines) {
-      const normLine = this.normalize(line);
-      if (normLine.includes('barrio') || normLine.includes('sector') || normLine.includes('comuna')) {
-        foundNeighborhood = this.capitalizeWords(line.replace(/^(?:barrio|sector|comuna)\s*/i, '').trim());
-        break;
-      }
-      // Si la línea tiene 1 o 2 palabras, no tiene números, no es transportadora ni ciudad conocida (ej: "Santa cruz")
-      if (line.split(/\s+/).length <= 3 && !/\d/.test(line) && !this.isBlacklistedName(line)) {
-        const norm = this.normalize(line);
-        if (
-          norm !== this.normalize(foundCity || '') &&
-          !this.COLOMBIAN_CITIES.includes(norm) &&
-          !this.COLOMBIAN_DEPARTMENTS.includes(norm)
-        ) {
-          // Si no es el nombre del cliente
-          if (!previousData?.name || !this.normalize(previousData.name).includes(norm)) {
-            foundNeighborhood = this.capitalizeWords(line.trim());
-          }
-        }
-      }
-    }
-
-    // =========================================================================
-    // 4. VALIDACIÓN DE DIRECCIÓN / RECLAMO EN OFICINA (INTERRAPIDÍSIMO, ETC.)
-    // =========================================================================
-    let foundAddress: string | undefined = previousData?.address;
-    let isOfficeDelivery: boolean = Boolean(previousData?.isOfficeDelivery);
-    let officeName: string | undefined = previousData?.officeName;
-
-    // Detectar si el cliente desea entrega o reclamo en oficina de transportadora
-    const isOfficeMentioned = this.OFFICE_TRANSPORTADORA_KEYWORDS.some((kw) =>
-      new RegExp(`\\b${kw}\\b`, 'i').test(normalizedFull)
-    );
-
-    if (isOfficeMentioned) {
-      isOfficeDelivery = true;
-      if (/enterrapidicimo|interrapidisimo|interapidisimo|inter rapidisimo|inter/i.test(normalizedFull)) {
-        officeName = 'Interrapidísimo';
-      } else if (/servientrega/i.test(normalizedFull)) {
-        officeName = 'Servientrega';
-      } else if (/coordinadora/i.test(normalizedFull)) {
-        officeName = 'Coordinadora';
-      } else if (/envia/i.test(normalizedFull)) {
-        officeName = 'Envía';
-      } else {
-        officeName = 'Interrapidísimo';
-      }
-
-      // Buscar si dio dirección específica de la oficina (ej: "calle 4 #8-29")
-      const roadMatch = rawText.match(
-        /(?:calle|carrera|cra|cll|cr|cl|diagonal|transversal|av|avenida)\s*\d+[\s#\-a-zA-Z0-9]*/i
-      );
-      if (roadMatch) {
-        let cleanRoad = roadMatch[0].trim();
-        if (foundCity) {
-          const cityWords = foundCity.toLowerCase().replace(/,/g, '').split(/\s+/);
-          for (const cw of cityWords) {
-            if (cw.length >= 3) {
-              cleanRoad = cleanRoad.replace(new RegExp(`\\b${cw}\\b.*$`, 'i'), '').trim();
-            }
-          }
-        }
-        foundAddress = cleanRoad ? `Oficina ${officeName} (${cleanRoad})` : `Reclamo en Oficina ${officeName}`;
-      } else {
-        foundAddress = `Reclamo en Oficina ${officeName}`;
-      }
-    } else {
-      // Entrega estándar a domicilio con nomenclatura
-      const hasRoadWithNumber =
-        /(?:calle|caye|carrera|karrera|cra|crra|krra|kra|cll|clle|cr|cl|diagonal|diag|dg|transversal|transv|tv|avenida|av|autopista)\s*#?\s*\d+/i.test(normalizedFull) ||
-        /(?:manzana|mz)\s*[a-zA-Z0-9]+\s*(?:casa|lote)?\s*\d*/i.test(normalizedFull) ||
-        /(?:km|kilometro)\s*\d+/i.test(normalizedFull) ||
-        /(?:vereda|finca)\s+[a-zA-Z]+/i.test(normalizedFull) ||
-        /(?:torre|bloque|apto|apartamento)\s*\d+/i.test(normalizedFull);
-
-      const hasNumbers = /\d{1,}/.test(normalizedFull);
-      const isPlaceholder = lines.some((line) =>
-        this.INVALID_ADDRESS_PATTERNS.some((p) => p.test(line.toLowerCase().trim()))
-      );
-
-      if (hasRoadWithNumber && hasNumbers && !isPlaceholder) {
-        const roadMatch = rawText.match(
-          /(?:calle|caye|carrera|karrera|cra|crra|krra|kra|cll|clle|cr|cl|diagonal|diag|dg|transversal|transv|tv|avenida|av|autopista|manzana|mz|vereda|finca|km)[\s#\-a-zA-Z0-9]*/i
-        );
-        let cleanRoad = roadMatch ? roadMatch[0].trim() : 'Dirección con nomenclatura confirmada';
-        if (foundCity && roadMatch) {
-          const cityWords = foundCity.toLowerCase().replace(/,/g, '').split(/\s+/);
-          for (const cw of cityWords) {
-            if (cw.length >= 3) {
-              cleanRoad = cleanRoad.replace(new RegExp(`\\b${cw}\\b.*$`, 'i'), '').trim();
-            }
-          }
-        }
-        foundAddress = cleanRoad || 'Dirección con nomenclatura confirmada';
-      }
-    }
-
-    if (!foundAddress) {
-      missing.push(
-        '*Dirección o punto de entrega:* Su dirección exacta (Calle/Carrera con número de casa) o indíquenos si prefiere *Reclamo en Oficina de Interrapidísimo*'
-      );
-    }
-
-    // =========================================================================
-    // 5. VALIDACIÓN DE NOMBRE DE CLIENTE
+    // 3. VALIDACIÓN DE NOMBRE DE CLIENTE
     // =========================================================================
     let foundName: string | undefined = previousData?.name;
     // Si el nombre previamente almacenado contiene palabras prohibidas (ej. "El Cuesta"), purgarlo
@@ -627,38 +553,135 @@ export class DataValidatorService {
                      !this.COLOMBIAN_CITIES.includes(nw) &&
                      !this.COLOMBIAN_DEPARTMENTS.includes(nw);
             });
-            if (allValid && !this.isBlacklistedName(cleanTokens.join(' '))) {
+            if (allValid) {
               foundName = this.capitalizeWords(cleanTokens.join(' '));
             }
           }
         }
       }
+    }
 
-      // D. Si el mensaje completo es únicamente un nombre propio de 2 o 3 palabras (sin números ni signos de pregunta)
-      if (!foundName && lines.length === 1 && !/\d/.test(rawText) && !rawText.includes('?')) {
-        const cleanTokens = rawText
-          .trim()
-          .split(/\s+/)
-          .map((w) => w.replace(/^[^\wáéíóúÁÉÍÓÚñÑ]+|[^\wáéíóúÁÉÍÓÚñÑ]+$/g, ''))
-          .filter(Boolean);
+    if (!foundName) {
+      missing.push('*Nombre y apellido:* ¿A nombre de quién registramos el paquete?');
+    }
 
-        if (cleanTokens.length >= 2 && cleanTokens.length <= 3) {
-          const allValid = cleanTokens.every((w) => {
-            const nw = this.normalize(w);
-            return /^[a-zA-ZñáéíóúÁÉÍÓÚ]+$/.test(w) &&
-                   !this.BLACKLISTED_NAME_WORDS.has(nw) &&
-                   !this.COLOMBIAN_CITIES.includes(nw) &&
-                   !this.COLOMBIAN_DEPARTMENTS.includes(nw);
-          });
-          if (allValid && !this.isBlacklistedName(cleanTokens.join(' '))) {
-            foundName = this.capitalizeWords(cleanTokens.join(' '));
+    // =========================================================================
+    // 4. VALIDACIÓN DE DIRECCIÓN / RECLAMO EN OFICINA (INTERRAPIDÍSIMO, ETC.)
+    // =========================================================================
+    let foundAddress: string | undefined = previousData?.address;
+    let isOfficeDelivery: boolean = Boolean(previousData?.isOfficeDelivery);
+    let officeName: string | undefined = previousData?.officeName;
+
+    // Detectar si el cliente desea entrega o reclamo en oficina de transportadora
+    const isOfficeMentioned = this.OFFICE_TRANSPORTADORA_KEYWORDS.some((kw) =>
+      new RegExp(`\\b${kw}\\b`, 'i').test(normalizedFull)
+    );
+
+    if (isOfficeMentioned) {
+      isOfficeDelivery = true;
+      if (/enterrapidicimo|interrapidisimo|interapidisimo|inter rapidisimo|inter/i.test(normalizedFull)) {
+        officeName = 'Interrapidísimo';
+      } else if (/servientrega/i.test(normalizedFull)) {
+        officeName = 'Servientrega';
+      } else if (/coordinadora/i.test(normalizedFull)) {
+        officeName = 'Coordinadora';
+      } else if (/envia/i.test(normalizedFull)) {
+        officeName = 'Envía';
+      } else {
+        officeName = 'Interrapidísimo';
+      }
+
+      // Buscar si dio dirección específica de la oficina (ej: "calle 4 #8-29")
+      const roadMatch = rawText.match(
+        /(?:calle|carrera|cra|cll|cr|cl|diagonal|transversal|av|avenida)\s*\d+[\s#\-a-zA-Z0-9]*/i
+      );
+
+      // Buscar si especificó sucursal o sector (ej. "Interrapidisimo del centro", "sede principal")
+      const branchMatch = rawText.match(
+        /(?:interrapidisimo|servientrega|coordinadora|envia|tcc)\s*(?:\b(?:del|de|en|la)\b\s*)?([a-zA-ZñáéíóúÁÉÍÓÚ\s]{3,25})/i
+      );
+
+      if (roadMatch) {
+        let cleanRoad = roadMatch[0].trim();
+        if (foundCity) {
+          const cityWords = foundCity.toLowerCase().replace(/,/g, '').split(/\s+/);
+          for (const cw of cityWords) {
+            if (cw.length >= 3) {
+              cleanRoad = cleanRoad.replace(new RegExp(`\\b${cw}\\b.*$`, 'i'), '').trim();
+            }
           }
         }
+        foundAddress = cleanRoad ? `Oficina ${officeName} (${cleanRoad})` : `Reclamo en Oficina ${officeName}`;
+      } else if (branchMatch && branchMatch[1] && !this.isBlacklistedName(branchMatch[1].trim())) {
+        const cleanBranch = this.capitalizeWords(branchMatch[1].trim());
+        foundAddress = `Oficina ${officeName} (${cleanBranch})`;
+      } else {
+        foundAddress = `Reclamo en Oficina ${officeName}`;
+      }
+    } else {
+      // Entrega estándar a domicilio con nomenclatura
+      const hasRoadWithNumber =
+        /(?:calle|caye|carrera|karrera|cra|crra|krra|kra|cll|clle|cr|cl|diagonal|diag|dg|transversal|transv|tv|avenida|av|autopista)\s*#?\s*\d+/i.test(normalizedFull) ||
+        /(?:manzana|mz)\s*[a-zA-Z0-9]+\s*(?:casa|lote)?\s*\d*/i.test(normalizedFull) ||
+        /(?:km|kilometro)\s*\d+/i.test(normalizedFull) ||
+        /(?:vereda|finca)\s+[a-zA-Z]+/i.test(normalizedFull) ||
+        /(?:torre|bloque|apto|apartamento)\s*\d+/i.test(normalizedFull);
+
+      const hasNumbers = /\d{1,}/.test(normalizedFull);
+      const isPlaceholder = lines.some((line) =>
+        this.INVALID_ADDRESS_PATTERNS.some((p) => p.test(line.toLowerCase().trim()))
+      );
+
+      if (hasRoadWithNumber && hasNumbers && !isPlaceholder) {
+        const roadMatch = rawText.match(
+          /(?:calle|caye|carrera|karrera|cra|crra|krra|kra|cll|clle|cr|cl|diagonal|diag|dg|transversal|transv|tv|avenida|av|autopista|manzana|mz|vereda|finca|km)[\s#\-a-zA-Z0-9]*/i
+        );
+        let cleanRoad = roadMatch ? roadMatch[0].trim() : 'Dirección con nomenclatura confirmada';
+        if (foundCity && roadMatch) {
+          const cityWords = foundCity.toLowerCase().replace(/,/g, '').split(/\s+/);
+          for (const cw of cityWords) {
+            if (cw.length >= 3) {
+              cleanRoad = cleanRoad.replace(new RegExp(`\\b${cw}\\b.*$`, 'i'), '').trim();
+            }
+          }
+        }
+        foundAddress = cleanRoad || 'Dirección con nomenclatura confirmada';
       }
     }
 
-    if (!foundName || foundName.length < 3) {
-      missing.push('*Nombre y apellido:* Nombre completo de quien recibe el paquete');
+    if (!foundAddress) {
+      missing.push(
+        '*Dirección o punto de entrega:* Su dirección exacta (Calle/Carrera con número de casa) o indíquenos si prefiere *Reclamo en Oficina de Interrapidísimo*'
+      );
+    }
+
+    // =========================================================================
+    // 5. DETECCIÓN DE BARRIO O SECTOR
+    // =========================================================================
+    let foundNeighborhood: string | undefined = previousData?.neighborhood;
+    for (const line of lines) {
+      const normLine = this.normalize(line);
+      if (normLine.includes('barrio') || normLine.includes('sector') || normLine.includes('comuna')) {
+        foundNeighborhood = this.capitalizeWords(line.replace(/^(?:barrio|sector|comuna)\s*/i, '').trim());
+        break;
+      }
+
+      // No interpretar como barrio el nombre del cliente, la ciudad o transportadora
+      if (foundName && normLine === this.normalize(foundName)) continue;
+      if (foundCity && this.normalize(foundCity).includes(normLine)) continue;
+      if (this.OFFICE_TRANSPORTADORA_KEYWORDS.some((kw) => normLine.includes(kw))) continue;
+
+      // Si la línea tiene 1 o 2 palabras, no tiene números, no es transportadora ni ciudad conocida (ej: "Santa cruz")
+      if (line.split(/\s+/).length <= 3 && !/\d/.test(line) && !this.isBlacklistedName(line)) {
+        const norm = this.normalize(line);
+        if (
+          norm !== this.normalize(foundCity || '') &&
+          !this.COLOMBIAN_CITIES.includes(norm) &&
+          !this.COLOMBIAN_DEPARTMENTS.includes(norm)
+        ) {
+          foundNeighborhood = this.capitalizeWords(line.trim());
+        }
+      }
     }
 
     // =========================================================================

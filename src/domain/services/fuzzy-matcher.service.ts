@@ -234,7 +234,22 @@ export class FuzzyMatcherService {
       'el kit trae', 'trae las dos', 'vienen las dos', 'es cada una'
     ];
 
-    return doubtKeywords.some((kw) => norm.includes(kw) || phon.includes(this.toPhonetic(kw)));
+    const phonTokens = phon.split(/\s+/);
+
+    return doubtKeywords.some((kw) => {
+      // Si la palabra clave es una frase compuesta con espacios
+      if (kw.includes(' ')) {
+        return norm.includes(kw) || phon.includes(this.toPhonetic(kw));
+      }
+
+      // Si es una sola palabra, verificar con límite de palabra (\b) para evitar falsos positivos
+      // (ej. "Manizales" no debe activar "sale", "tranquilo" no debe activar "kilo")
+      const regex = new RegExp(`\\b${kw}\\b`, 'i');
+      if (regex.test(norm)) return true;
+
+      const pkw = this.toPhonetic(kw);
+      return phonTokens.includes(pkw);
+    });
   }
 
   /**

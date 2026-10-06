@@ -8,4 +8,5 @@ export interface IAiService {
     product?: ProductConfig
   ): Promise<string>;
   recordExchange?(senderId: string, userMessage: string, botReply: string): void;
+  getHistory?(senderId: string): Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }>;
 }

@@ -159,4 +159,8 @@ export class GeminiService implements IAiService {
     });
     this.conversationHistory.set(senderId, history.slice(-this.maxHistoryRounds));
   }
+
+  public getHistory(senderId: string): ChatHistoryItem[] {
+    return this.conversationHistory.get(senderId) || [];
+  }
 }

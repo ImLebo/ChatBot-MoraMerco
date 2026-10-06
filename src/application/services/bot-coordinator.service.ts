@@ -2,6 +2,7 @@ import { IMessageHandler, IMessageSender, IButtonOption } from '../../domain/ser
 import { NormalizedMessage } from '../../domain/models/message.model.js';
 import { IAiService } from '../../domain/services/ai-service.interface.js';
 import { QuickReplyService } from '../../domain/services/quick-reply.service.js';
+import { DataValidatorService, CustomerShippingData } from '../../domain/services/data-validator.service.js';
 import { FollowUpService } from './follow-up.service.js';
 import {
   findProductByKeywords,
@@ -254,6 +255,16 @@ export class BotCoordinatorService implements IMessageHandler {
         console.log('-------------------------------------------------------');
       }
 
+      // Salvaguarda: si el mensaje contiene datos de envío, validarlos y guardarlos de inmediato
+      if (DataValidatorService.isLikelyShippingData(unifiedMessage.text)) {
+        const prev = this.quickReplyService.getCustomerData(unifiedMessage.remoteJid);
+        const val = DataValidatorService.validate(unifiedMessage.text, prev);
+        if (val.isValid || (val.phone && val.city)) {
+          this.quickReplyService.setCustomerData(unifiedMessage.remoteJid, val);
+          console.log(`📦 [Datos de Envío Capturados] Nombre: ${val.name || 'N/A'}, Ciudad: ${val.city || 'N/A'}, Tel: ${val.phone || 'N/A'}`);
+        }
+      }
+
       // =======================================================================
       // A. IDENTIFICACIÓN Y PERSISTENCIA DEL PRODUCTO ACTIVO
       // =======================================================================
@@ -383,14 +394,16 @@ export class BotCoordinatorService implements IMessageHandler {
 
         this.quickReplyService.markGreeted(unifiedMessage.remoteJid);
 
-        // Si Gemini formuló el resumen de pedido o solicita confirmación, agregar botón interactivo
-        if (responseText.includes('RESUMEN DE TU PEDIDO') || (responseText.includes('CONFIRMAR') && !responseText.includes('CONFIRMADO'))) {
+        // Si Gemini formuló el resumen de pedido o solicita confirmación, agregar botón interactivo y respaldar datos
+        if (responseText.includes('RESUMEN DE') || (responseText.includes('CONFIRMAR') && !responseText.includes('CONFIRMADO'))) {
           buttonsToAttach = [{ id: 'CONFIRMAR', displayText: '✅ CONFIRMAR PEDIDO' }];
           this.quickReplyService.setState(unifiedMessage.remoteJid, 'CONFIRMATION_PENDING');
+          this.extractAndSaveDataFromAiSummary(unifiedMessage.remoteJid, responseText);
         } else if (responseText.includes('100% CONFIRMADO')) {
           this.followUpService.markOrderCompleted(unifiedMessage.remoteJid);
           this.quickReplyService.setState(unifiedMessage.remoteJid, 'ORDER_CONFIRMED');
           orderJustConfirmed = true;
+          this.extractAndSaveDataFromAiSummary(unifiedMessage.remoteJid, responseText);
           console.log(`🎉 ¡PEDIDO CONFIRMADO EXITOSAMENTE VÍA IA PARA (+${unifiedMessage.senderNumber})!`);
         } else if (this.quickReplyService.getState(unifiedMessage.remoteJid) === 'NEW') {
           this.quickReplyService.setState(unifiedMessage.remoteJid, 'PRICING_SENT');
@@ -480,18 +493,29 @@ export class BotCoordinatorService implements IMessageHandler {
     }
 
     try {
-      const savedData = this.quickReplyService.getCustomerData(message.remoteJid);
+      let savedData = this.quickReplyService.getCustomerData(message.remoteJid);
+      if (!savedData || !savedData.isValid || !savedData.phone || !savedData.city) {
+        savedData = this.recoverShippingDataFromHistory(message.remoteJid, savedData);
+      }
+
       const customerProduct = this.quickReplyService.getCustomerProduct(message.remoteJid);
 
       const customerName = savedData?.name || message.senderName || 'Cliente';
-      const customerPhone = savedData?.phone || message.senderNumber;
+      const rawPhone = savedData?.phone || message.senderNumber;
+      const cleanDigits = rawPhone.replace(/[^\d]/g, '');
+      const waNumber = cleanDigits.length === 10 && cleanDigits.startsWith('3')
+        ? `57${cleanDigits}`
+        : cleanDigits.startsWith('57')
+          ? cleanDigits
+          : cleanDigits;
+
       const productDesc = customerProduct?.description || product?.name || 'Base Ajustable de Acero';
       const priceText = customerProduct?.price
         ? `$${customerProduct.price.toLocaleString('es-CO')}`
         : 'Contra entrega en efectivo';
 
       const cityDept = savedData?.city
-        ? `${savedData.city}${savedData.department ? `, ${savedData.department}` : ''}`
+        ? `${savedData.city}${savedData.department && !savedData.city.includes(savedData.department) ? `, ${savedData.department}` : ''}`
         : 'Por coordinar con el cliente';
 
       const addressText = savedData?.address || 'Por coordinar con el cliente';
@@ -509,7 +533,7 @@ export class BotCoordinatorService implements IMessageHandler {
         `💰 *Valor:* ${priceText}\n` +
         `💵 *Pago:* Contra entrega en efectivo (Envío Gratis 🚚)\n\n` +
         `👤 *Cliente:* ${customerName}\n` +
-        `📱 *WhatsApp:* +${customerPhone} ( https://wa.me/${customerPhone} )\n` +
+        `📱 *WhatsApp:* +${rawPhone} ( https://wa.me/${waNumber} )\n` +
         `📍 *Destino:* ${cityDept}\n` +
         `🏠 *Dirección:* ${addressText}` +
         `${barrioText}` +
@@ -519,10 +543,123 @@ export class BotCoordinatorService implements IMessageHandler {
 
       if (sender) {
         await sender.sendTextMessage(targetGroupJid, alertMessage);
-        console.log(`\n📢 [NOTIFICACIÓN DE VENTA ENVIADA] Alerta enviada con éxito al grupo [${targetGroupJid}] para el pedido de +${customerPhone}\n`);
+        console.log(`\n📢 [NOTIFICACIÓN DE VENTA ENVIADA] Alerta enviada con éxito al grupo [${targetGroupJid}] para el pedido de ${customerName} (+${rawPhone})\n`);
       }
     } catch (error) {
       console.error(`❌ Error enviando notificación de venta al grupo [${targetGroupJid}]:`, error);
     }
+  }
+
+  /**
+   * Extrae campos de envío cuando la IA formula el resumen del pedido
+   */
+  private extractAndSaveDataFromAiSummary(jid: string, text: string): void {
+    const aiData = this.parseAiSummary(text);
+    if (aiData.name || aiData.city || aiData.phone) {
+      const prev = this.quickReplyService.getCustomerData(jid);
+      const merged: CustomerShippingData = {
+        isValid: Boolean(aiData.phone && aiData.city),
+        name: aiData.name || prev?.name,
+        city: aiData.city || prev?.city,
+        address: aiData.address || prev?.address,
+        phone: aiData.phone || prev?.phone,
+        isOfficeDelivery: aiData.address?.toLowerCase().includes('oficina') ?? prev?.isOfficeDelivery,
+        missingFields: [],
+      };
+      this.quickReplyService.setCustomerData(jid, merged);
+      console.log(`📦 [Datos Respaldados de Resumen IA] Nombre: ${merged.name || 'N/A'}, Destino: ${merged.city || 'N/A'}, Tel: ${merged.phone || 'N/A'}`);
+    }
+  }
+
+  private parseAiSummary(text: string): { name?: string; phone?: string; city?: string; address?: string } {
+    let name: string | undefined;
+    let phone: string | undefined;
+    let city: string | undefined;
+    let address: string | undefined;
+
+    const recibeMatch = text.match(/(?:recibe|destinatario|nombre)\s*:\s*([^\n\r]+)/i);
+    if (recibeMatch) {
+      const rawRecibe = recibeMatch[1].replace(/[*\-_]/g, '').trim();
+      const phoneInRecibe = rawRecibe.match(/(?:3\d{9}|573\d{9})/);
+      if (phoneInRecibe) {
+        phone = phoneInRecibe[0];
+        name = rawRecibe.replace(phoneInRecibe[0], '').replace(/[-:]/g, '').trim();
+      } else {
+        name = rawRecibe;
+      }
+    }
+
+    const destinoMatch = text.match(/(?:destino|ciudad)\s*:\s*([^\n\r]+)/i);
+    if (destinoMatch) {
+      city = destinoMatch[1].replace(/[*\-_]/g, '').trim();
+    }
+
+    const entregaMatch = text.match(/(?:entrega|direcci[oó]n)\s*:\s*([^\n\r]+)/i);
+    if (entregaMatch) {
+      address = entregaMatch[1].replace(/[*\-_]/g, '').trim();
+    }
+
+    return { name, phone, city, address };
+  }
+
+  /**
+   * Intenta recuperar los datos de envío inspeccionando el historial de mensajes
+   */
+  private recoverShippingDataFromHistory(jid: string, existing?: CustomerShippingData): CustomerShippingData | undefined {
+    if (!this.aiService.getHistory) return existing;
+    const history = this.aiService.getHistory(jid);
+    if (!history || history.length === 0) return existing;
+
+    let recovered: CustomerShippingData | undefined = existing;
+
+    for (let i = history.length - 1; i >= 0; i--) {
+      const item = history[i];
+      for (const part of item.parts) {
+        if (!part.text) continue;
+
+        if (item.role === 'user') {
+          if (DataValidatorService.isLikelyShippingData(part.text)) {
+            const val = DataValidatorService.validate(part.text, recovered);
+            if (val.phone || val.city || val.name) {
+              recovered = {
+                isValid: val.isValid || Boolean(val.phone && val.city),
+                name: val.name || recovered?.name,
+                city: val.city || recovered?.city,
+                department: val.department || recovered?.department,
+                neighborhood: val.neighborhood || recovered?.neighborhood,
+                address: val.address || recovered?.address,
+                phone: val.phone || recovered?.phone,
+                isOfficeDelivery: val.isOfficeDelivery ?? recovered?.isOfficeDelivery,
+                officeName: val.officeName || recovered?.officeName,
+                missingFields: val.missingFields,
+              };
+            }
+          }
+        } else if (item.role === 'model') {
+          if (part.text.includes('RESUMEN DE')) {
+            const aiData = this.parseAiSummary(part.text);
+            if (aiData.name || aiData.city || aiData.phone) {
+              recovered = {
+                isValid: true,
+                name: aiData.name || recovered?.name,
+                city: aiData.city || recovered?.city,
+                address: aiData.address || recovered?.address,
+                phone: aiData.phone || recovered?.phone,
+                isOfficeDelivery: aiData.address?.toLowerCase().includes('oficina') ?? recovered?.isOfficeDelivery,
+                missingFields: [],
+              };
+            }
+          }
+        }
+      }
+      if (recovered?.phone && recovered?.city && recovered?.address) {
+        break;
+      }
+    }
+
+    if (recovered) {
+      this.quickReplyService.setCustomerData(jid, recovered);
+    }
+    return recovered;
   }
 }
