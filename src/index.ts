@@ -10,12 +10,15 @@ async function bootstrap() {
   console.log('🛍️ INICIANDO ASESORA VIRTUAL "MARIA PAULA" - MORAMERCO');
   console.log(`📁 Sesiones WhatsApp: ${config.sessionsDir}`);
   console.log(`🧠 Gemini API: ${config.geminiApiKey ? 'Configurada ✅' : 'No configurada (Modo contingencia) ⚠️'}`);
+  console.log(`🤖 Modelos IA: 1º Principal [${config.geminiModel}] | 2º Secundario [${config.geminiFallbackModel}]`);
+  console.log(`👥 Monitoreo de Grupos: ${config.showGroupMessages ? 'Activado (Solo Lectura) 👀' : 'Desactivado (Ignorar grupos) 🚫'}`);
+  console.log(`📢 Grupo de Ventas: ${config.WHATSAPP_SALES_GROUP_JID ? `${config.WHATSAPP_SALES_GROUP_JID} ✅` : 'No configurado (Alertas desactivadas) ℹ️'}`);
   console.log('======================================================');
 
   // 1. Capa de Infraestructura: Autenticación, QR y Gemini AI
   const authService = new AuthStateService(config.sessionsDir);
   const qrService = new QrService();
-  const aiService = new GeminiService(config.geminiApiKey, config.geminiModel);
+  const aiService = new GeminiService(config.geminiApiKey, config.geminiModel, config.geminiFallbackModel);
 
   // 2. Capa de Aplicación: Coordinador del Bot con IA inyectada
   const botCoordinator = new BotCoordinatorService(aiService);

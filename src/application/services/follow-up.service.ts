@@ -1,17 +1,19 @@
 import { IMessageSender } from '../../domain/services/message-handler.interface.js';
+import { ProductConfig } from '../../domain/models/product.model.js';
+import { DEFAULT_PRODUCT } from '../../config/products.config.js';
 
 interface ChatFollowUpState {
   jid: string;
   stage: number; // 0 = sin seguimiento, 1 = seguimiento 1 enviado, 2 = seguimiento 2 enviado (cerrado)
   isOrderCompleted: boolean;
   timer?: NodeJS.Timeout;
+  product?: ProductConfig;
 }
 
 export class FollowUpService {
   private readonly chats = new Map<string, ChatFollowUpState>();
 
   // Tiempos configurables (por defecto 45 minutos para el primero, 3 horas para el segundo)
-  // En milisegundos:
   private readonly delayStage1Ms: number;
   private readonly delayStage2Ms: number;
 
@@ -27,6 +29,7 @@ export class FollowUpService {
    * Se ejecuta cada vez que el cliente responde: CANCELA cualquier seguimiento pendiente
    */
   public onCustomerReplied(jid: string): void {
+    if (jid.endsWith('@g.us')) return;
     const chat = this.chats.get(jid);
     if (chat?.timer) {
       clearTimeout(chat.timer);
@@ -39,6 +42,7 @@ export class FollowUpService {
    * Marca el pedido como completado/confirmado para NUNCA volver a enviarle seguimiento de carrito
    */
   public markOrderCompleted(jid: string): void {
+    if (jid.endsWith('@g.us')) return;
     const chat = this.chats.get(jid) || { jid, stage: 0, isOrderCompleted: false };
     if (chat.timer) {
       clearTimeout(chat.timer);
@@ -50,14 +54,17 @@ export class FollowUpService {
   }
 
   /**
-   * Programa el próximo seguimiento después de que Maria Paula responde
+   * Programa el próximo seguimiento después de que Maria Paula responde, asociando el producto activo
    */
-  public scheduleFollowUp(jid: string, sender: IMessageSender): void {
+  public scheduleFollowUp(jid: string, sender: IMessageSender, product?: ProductConfig): void {
+    if (jid.endsWith('@g.us')) return;
     let chat = this.chats.get(jid);
 
     if (!chat) {
-      chat = { jid, stage: 0, isOrderCompleted: false };
+      chat = { jid, stage: 0, isOrderCompleted: false, product: product || DEFAULT_PRODUCT };
       this.chats.set(jid, chat);
+    } else if (product) {
+      chat.product = product;
     }
 
     // Si ya completó el pedido o ya recibió los 2 seguimientos, no hacer nada
@@ -73,7 +80,7 @@ export class FollowUpService {
     const nextDelay = chat.stage === 0 ? this.delayStage1Ms : this.delayStage2Ms;
     const targetStage = chat.stage + 1;
 
-    console.log(`⏳ Seguimiento #${targetStage} programado para [${jid}] en ${nextDelay / 60000} minutos.`);
+    console.log(`⏳ Seguimiento #${targetStage} programado para [${jid}] en ${nextDelay / 60000} minutos (Producto: ${chat.product?.name || 'Predeterminado'}).`);
 
     chat.timer = setTimeout(async () => {
       await this.triggerFollowUp(jid, targetStage, sender);
@@ -81,7 +88,7 @@ export class FollowUpService {
   }
 
   /**
-   * Envía el mensaje de seguimiento cuidando las normas anti-spam y horarios
+   * Envía el mensaje de seguimiento cuidando las normas anti-spam, horarios y el contexto del producto
    */
   private async triggerFollowUp(jid: string, stage: number, sender: IMessageSender): Promise<void> {
     const chat = this.chats.get(jid);
@@ -95,18 +102,14 @@ export class FollowUpService {
       return;
     }
 
-    // 2. Seleccionar el mensaje según la etapa
+    // 2. Seleccionar el mensaje según la etapa a partir de followUpHooks del producto activo
+    const currentProduct = chat.product || DEFAULT_PRODUCT;
     let messageText = '';
+
     if (stage === 1) {
-      messageText =
-        `Estimado/a cliente, reciba un cordial saludo de parte de MoraMerco 😊\n\n` +
-        `Le escribo con el mayor agrado para consultarle si le quedó alguna inquietud acerca de las medidas o el funcionamiento de la base para sus electrodomésticos.\n\n` +
-        `Recuerde que al ser barras de acero independientes y telescópicas con 24 ruedas y frenos, se adaptan a cualquier nevera o lavadora sin esfuerzo ni herramientas, elevan 4 cm para trapear sabroso sin matarse la espalda y protegen sus equipos del óxido. Quedo muy atenta a sus indicaciones ✨`;
+      messageText = currentProduct.followUpHooks?.firstFollowUp;
     } else if (stage === 2) {
-      messageText =
-        `Buen día, le saluda nuevamente Maria Paula de MoraMerco 👋\n\n` +
-        `Paso a comentarle respetuosamente que en nuestra bodega nos encontramos organizando los despachos del día junto a la transportadora 🚚📦\n\n` +
-        `¿Desea que alcancemos a programar su entrega con el *Envío Gratis* y pago contra entrega en efectivo al recibir en su domicilio? Quedo muy atenta para dejársela lista de inmediato 🙌`;
+      messageText = currentProduct.followUpHooks?.secondFollowUp;
     }
 
     if (!messageText) return;
@@ -123,13 +126,14 @@ export class FollowUpService {
 
       console.log('\n📤 ------------ SEGUIMIENTO AUTOMÁTICO ENVIADO ------------');
       console.log(`👤 Para: [${jid}] (Etapa #${stage})`);
+      console.log(`📦 Producto: [${currentProduct.name}]`);
       console.log(`💬 Mensaje:\n"${messageText}"`);
       console.log(`🕒 Hora: ${new Date().toLocaleTimeString()}`);
       console.log('-----------------------------------------------------------\n');
 
       // Si fue el seguimiento 1, programar el seguimiento 2
       if (stage === 1) {
-        this.scheduleFollowUp(jid, sender);
+        this.scheduleFollowUp(jid, sender, currentProduct);
       }
     } catch (error) {
       console.error(`❌ Error enviando seguimiento automático a [${jid}]:`, error);
@@ -137,7 +141,7 @@ export class FollowUpService {
   }
 
   /**
-   * Verifica si la hora actual está entre 8:00 AM y 8:30 PM
+   * Verifica si la hora actual está entre 8:00 AM y 8:30 PM (Hora Colombia)
    */
   private isWithinBusinessHours(): boolean {
     const now = new Date();

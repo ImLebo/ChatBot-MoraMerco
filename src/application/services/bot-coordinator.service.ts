@@ -3,6 +3,14 @@ import { NormalizedMessage } from '../../domain/models/message.model.js';
 import { IAiService } from '../../domain/services/ai-service.interface.js';
 import { QuickReplyService } from '../../domain/services/quick-reply.service.js';
 import { FollowUpService } from './follow-up.service.js';
+import {
+  findProductByKeywords,
+  getProductBySlug,
+  getAllProducts,
+  DEFAULT_PRODUCT,
+} from '../../config/products.config.js';
+import { ProductConfig } from '../../domain/models/product.model.js';
+import { config } from '../../config/env.config.js';
 
 interface UserMessageQueue {
   messages: NormalizedMessage[];
@@ -36,7 +44,24 @@ export class BotCoordinatorService implements IMessageHandler {
   ): Promise<void> {
     const jid = message.remoteJid;
 
-    // 0. Si el mensaje fue enviado por el ASESOR HUMANO (desde su celular o WhatsApp Web)
+    // 0. Si es un mensaje de grupo: MOSTRAR en consola para monitoreo, pero NUNCA responder
+    if (message.isGroup) {
+      const senderDisplay = message.fromMe
+        ? 'Tú (Asesor)'
+        : `${message.senderName || 'Participante'} (+${message.senderNumber})`;
+
+      console.log('\n👥 ================= MENSAJE DE GRUPO RECIBIDO =================');
+      console.log(`🏷️  Nombre del Grupo: ${message.groupName ? `"${message.groupName}"` : '(Sin nombre detectado)'}`);
+      console.log(`🆔 ID del Grupo: ${message.remoteJid}`);
+      console.log(`👤 Remitente: ${senderDisplay}`);
+      console.log(`💬 Mensaje: "${message.text}"`);
+      console.log(`🕒 Hora: ${new Date(message.timestamp * 1000).toLocaleTimeString()}`);
+      console.log(`🛡️  [SOLO LECTURA] El bot NO responderá por tratarse de un grupo.`);
+      console.log('=================================================================\n');
+      return;
+    }
+
+    // 1. Si el mensaje fue enviado por el ASESOR HUMANO (desde su celular o WhatsApp Web)
     if (message.fromMe) {
       this.handleHumanAgentMessage(message);
       return;
@@ -229,12 +254,99 @@ export class BotCoordinatorService implements IMessageHandler {
         console.log('-------------------------------------------------------');
       }
 
+      // =======================================================================
+      // A. IDENTIFICACIÓN Y PERSISTENCIA DEL PRODUCTO ACTIVO
+      // =======================================================================
+      let activeSlug = this.quickReplyService.getActiveProduct(unifiedMessage.remoteJid);
+      let currentProduct = activeSlug ? getProductBySlug(activeSlug) : undefined;
+
+      // 1. Si el cliente envió un clic en botón con formato PRODUCT_{slug}
+      if (!currentProduct && unifiedMessage.text.startsWith('PRODUCT_')) {
+        const slugCandidate = unifiedMessage.text.replace('PRODUCT_', '').trim();
+        const found = getProductBySlug(slugCandidate);
+        if (found) {
+          currentProduct = found;
+          this.quickReplyService.setActiveProduct(unifiedMessage.remoteJid, found.slug);
+          console.log(`🎯 [Selección por Botón] Producto vinculado: "${currentProduct.name}" (${currentProduct.slug})`);
+        }
+      }
+
+      // 2. Si estábamos esperando que elija producto (AWAITING_PRODUCT) y respondió con número
+      if (!currentProduct && this.quickReplyService.getState(unifiedMessage.remoteJid) === 'AWAITING_PRODUCT') {
+        const all = getAllProducts();
+        const num = parseInt(unifiedMessage.text.trim(), 10);
+        if (!isNaN(num) && num >= 1 && num <= all.length) {
+          currentProduct = all[num - 1];
+          this.quickReplyService.setActiveProduct(unifiedMessage.remoteJid, currentProduct.slug);
+          console.log(`🎯 [Selección Numérica] Producto vinculado: "${currentProduct.name}" (${currentProduct.slug})`);
+        }
+      }
+
+      // 3. Evaluar el texto contra las trackingKeywords de cada producto en PRODUCTS_CATALOG
+      if (!currentProduct) {
+        const matchedProduct = findProductByKeywords(unifiedMessage.text);
+        if (matchedProduct) {
+          currentProduct = matchedProduct;
+          this.quickReplyService.setActiveProduct(unifiedMessage.remoteJid, matchedProduct.slug);
+          console.log(`🎯 [Detección de Campaña] Producto identificado por anuncio: "${matchedProduct.name}" (${matchedProduct.slug})`);
+        }
+      }
+
+      // 4. Si no coincide con ninguno (por ejemplo, el cliente solo escribió "Hola buenas" o saludo general sin producto previo)
+      if (!currentProduct) {
+        const allProducts = getAllProducts();
+        if (allProducts.length === 1) {
+          // Si solo hay un producto activo en el catálogo (la Base Ajustable), asignarlo de inmediato sin menú innecesario
+          currentProduct = allProducts[0];
+          this.quickReplyService.setActiveProduct(unifiedMessage.remoteJid, currentProduct.slug);
+          console.log(`🎯 [Producto Único] Cliente asignado automáticamente a: "${currentProduct.name}" (${currentProduct.slug})`);
+        } else {
+          const optionsText = allProducts
+            .map((p, idx) => `${idx + 1}️⃣ *${p.name}*`)
+            .join('\n');
+
+          const menuResponse =
+            `¡Hola! Soy Maria Paula de MoraMerco 😊 Con mucho gusto le atiendo.\n\n` +
+            `Para compartirle la información completa con fotos y precios, por favor cuénteme por cuál de nuestros productos nos escribe:\n\n` +
+            `${optionsText}\n\n` +
+            `👇 Responda con el número (ej: *1*) o el nombre del producto que vio en nuestro anuncio.`;
+
+          const menuButtons: IButtonOption[] = allProducts.map((p, idx) => ({
+            id: `PRODUCT_${p.slug}`,
+            displayText: `${idx + 1}. ${p.name.length > 20 ? p.name.slice(0, 18) + '...' : p.name}`,
+          }));
+
+          this.quickReplyService.setState(unifiedMessage.remoteJid, 'AWAITING_PRODUCT');
+          this.quickReplyService.markGreeted(unifiedMessage.remoteJid);
+
+          await this.sleep(1000);
+          await sender.sendTypingState(unifiedMessage.remoteJid);
+          await this.sleep(2000);
+
+          if (menuButtons.length > 0) {
+            await sender.sendInteractiveButtons(
+              unifiedMessage.remoteJid,
+              menuResponse,
+              menuButtons,
+              'MoraMerco Colombia',
+              'Seleccione el producto de su interés'
+            );
+          } else {
+            await sender.sendTextMessage(unifiedMessage.remoteJid, menuResponse);
+          }
+
+          console.log(`\n📤 [Menú de Productos Enviado] a ${unifiedMessage.senderName || 'Cliente'} (+${unifiedMessage.senderNumber})`);
+          return;
+        }
+      }
+
       let responseText: string;
       let source: string;
       let buttonsToAttach: IButtonOption[] | undefined;
+      let orderJustConfirmed = false;
 
-      // 1. Verificar si coincide con una respuesta rápida local (0 consumo de IA)
-      const quickMatch = this.quickReplyService.matchQuickReply(unifiedMessage.text, unifiedMessage.remoteJid);
+      // 1. Verificar si coincide con una respuesta rápida local con el producto activo
+      const quickMatch = this.quickReplyService.matchQuickReply(unifiedMessage.text, unifiedMessage.remoteJid, currentProduct);
 
       if (quickMatch.matched && quickMatch.response) {
         source = `⚡ Software Local [Intención: ${quickMatch.intent}]`;
@@ -251,6 +363,7 @@ export class BotCoordinatorService implements IMessageHandler {
         // Si el cliente confirmó el pedido, desactivar el seguimiento para siempre
         if (quickMatch.intent === 'CONFIRM_ORDER') {
           this.followUpService.markOrderCompleted(unifiedMessage.remoteJid);
+          orderJustConfirmed = true;
           console.log(`🎉 ¡PEDIDO CONFIRMADO EXITOSAMENTE PARA EL CLIENTE (+${unifiedMessage.senderNumber})!`);
         }
 
@@ -259,12 +372,13 @@ export class BotCoordinatorService implements IMessageHandler {
           this.aiService.recordExchange(unifiedMessage.remoteJid, unifiedMessage.text, responseText);
         }
       } else {
-        source = '🧠 Gemini AI (3.1-flash-lite)';
-        // 2. Si es una duda compleja, objeción o flujo abierto, recurre a Gemini AI con el texto unificado
+        source = `🧠 Gemini AI (${config.geminiModel})`;
+        // 2. Si es una duda compleja, objeción o flujo abierto, recurre a Gemini AI con el texto y el producto activo
         responseText = await this.aiService.generateResponse(
           unifiedMessage.remoteJid,
           unifiedMessage.text,
-          unifiedMessage.senderName
+          unifiedMessage.senderName,
+          currentProduct
         );
 
         this.quickReplyService.markGreeted(unifiedMessage.remoteJid);
@@ -276,6 +390,7 @@ export class BotCoordinatorService implements IMessageHandler {
         } else if (responseText.includes('100% CONFIRMADO')) {
           this.followUpService.markOrderCompleted(unifiedMessage.remoteJid);
           this.quickReplyService.setState(unifiedMessage.remoteJid, 'ORDER_CONFIRMED');
+          orderJustConfirmed = true;
           console.log(`🎉 ¡PEDIDO CONFIRMADO EXITOSAMENTE VÍA IA PARA (+${unifiedMessage.senderNumber})!`);
         } else if (this.quickReplyService.getState(unifiedMessage.remoteJid) === 'NEW') {
           this.quickReplyService.setState(unifiedMessage.remoteJid, 'PRICING_SENT');
@@ -323,7 +438,12 @@ export class BotCoordinatorService implements IMessageHandler {
       // 7. Programar seguimiento automático solo si el pedido NO ha sido confirmado
       const currentState = this.quickReplyService.getState(unifiedMessage.remoteJid);
       if (quickMatch?.intent !== 'CONFIRM_ORDER' && currentState !== 'ORDER_CONFIRMED') {
-        this.followUpService.scheduleFollowUp(unifiedMessage.remoteJid, sender);
+        this.followUpService.scheduleFollowUp(unifiedMessage.remoteJid, sender, currentProduct);
+      }
+
+      // 8. Si el pedido fue confirmado, enviar notificación automática al grupo interno de ventas
+      if (orderJustConfirmed) {
+        await this.notifySalesGroup(unifiedMessage, currentProduct, sender);
       }
     } catch (error) {
       console.error(`❌ Error procesando lote de mensajes para [${jid}]:`, error);
@@ -343,5 +463,66 @@ export class BotCoordinatorService implements IMessageHandler {
 
   private sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Envía una alerta automática con los datos del pedido confirmado al grupo interno de ventas/operaciones
+   */
+  private async notifySalesGroup(
+    message: NormalizedMessage,
+    product?: ProductConfig,
+    sender?: IMessageSender
+  ): Promise<void> {
+    const targetGroupJid = config.WHATSAPP_SALES_GROUP_JID || config.whatsappSalesGroupJid;
+    if (!targetGroupJid) {
+      console.log('ℹ️ [Aviso de Ventas] WHATSAPP_SALES_GROUP_JID no configurado. Se omite notificación a grupo interno.');
+      return;
+    }
+
+    try {
+      const savedData = this.quickReplyService.getCustomerData(message.remoteJid);
+      const customerProduct = this.quickReplyService.getCustomerProduct(message.remoteJid);
+
+      const customerName = savedData?.name || message.senderName || 'Cliente';
+      const customerPhone = savedData?.phone || message.senderNumber;
+      const productDesc = customerProduct?.description || product?.name || 'Base Ajustable de Acero';
+      const priceText = customerProduct?.price
+        ? `$${customerProduct.price.toLocaleString('es-CO')}`
+        : 'Contra entrega en efectivo';
+
+      const cityDept = savedData?.city
+        ? `${savedData.city}${savedData.department ? `, ${savedData.department}` : ''}`
+        : 'Por coordinar con el cliente';
+
+      const addressText = savedData?.address || 'Por coordinar con el cliente';
+      const barrioText = savedData?.neighborhood ? `\n🏘️ *Barrio:* ${savedData.neighborhood}` : '';
+      const officeText = savedData?.isOfficeDelivery ? '\n🏢 *Modalidad:* Reclamo en Oficina' : '';
+
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true });
+      const dateStr = now.toLocaleDateString('es-CO');
+
+      const alertMessage =
+        `🚨 *¡NUEVO PEDIDO CONFIRMADO!* 📦🎉\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `🛍️ *Pedido:* ${productDesc}\n` +
+        `💰 *Valor:* ${priceText}\n` +
+        `💵 *Pago:* Contra entrega en efectivo (Envío Gratis 🚚)\n\n` +
+        `👤 *Cliente:* ${customerName}\n` +
+        `📱 *WhatsApp:* +${customerPhone} ( https://wa.me/${customerPhone} )\n` +
+        `📍 *Destino:* ${cityDept}\n` +
+        `🏠 *Dirección:* ${addressText}` +
+        `${barrioText}` +
+        `${officeText}\n\n` +
+        `🕒 *Hora:* ${timeStr} | ${dateStr}\n` +
+        `━━━━━━━━━━━━━━━━━━━━`;
+
+      if (sender) {
+        await sender.sendTextMessage(targetGroupJid, alertMessage);
+        console.log(`\n📢 [NOTIFICACIÓN DE VENTA ENVIADA] Alerta enviada con éxito al grupo [${targetGroupJid}] para el pedido de +${customerPhone}\n`);
+      }
+    } catch (error) {
+      console.error(`❌ Error enviando notificación de venta al grupo [${targetGroupJid}]:`, error);
+    }
   }
 }

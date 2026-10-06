@@ -1,6 +1,8 @@
 import { GoogleGenAI } from '@google/genai';
 import { IAiService } from '../../domain/services/ai-service.interface.js';
-import { MORAMERCO_SYSTEM_PROMPT } from '../../domain/prompts/store-system.prompt.js';
+import { ProductConfig } from '../../domain/models/product.model.js';
+import { buildSystemPrompt } from '../../domain/prompts/store-system.prompt.js';
+import { DEFAULT_PRODUCT } from '../../config/products.config.js';
 
 interface ChatHistoryItem {
   role: 'user' | 'model';
@@ -14,7 +16,8 @@ export class GeminiService implements IAiService {
 
   constructor(
     private readonly apiKey?: string,
-    private readonly modelName: string = 'gemini-3.1-flash-lite'
+    private readonly modelName: string = 'gemini-3.1-flash-lite',
+    private readonly fallbackModelName: string = 'gemini-2.5-flash-lite'
   ) {
     if (this.apiKey && this.apiKey.trim().length > 0) {
       this.ai = new GoogleGenAI({ apiKey: this.apiKey.trim() });
@@ -24,13 +27,20 @@ export class GeminiService implements IAiService {
   public async generateResponse(
     senderId: string,
     userMessage: string,
-    senderName?: string
+    senderName?: string,
+    product?: ProductConfig
   ): Promise<string> {
-    // Si no se ha configurado la API Key, dar respuesta de contingencia
+    const targetProduct = product || DEFAULT_PRODUCT;
+
+    // Si no se ha configurado la API Key, dar respuesta de contingencia con el producto activo
     if (!this.ai) {
+      const combosPreview = targetProduct.pricingCombos
+        .map((c) => `${c.label} a $${c.price.toLocaleString('es-CO')}`)
+        .join(' | ');
+
       return (
         `¡Hola! Soy Maria Paula de MoraMerco 😊\n\n` +
-        `📦 Manejamos Base Ajustable de Acero (Par de Barras Telescópicas con 24 Ruedas): Combo x1 a $69.900 y Combo Dúo (x2 Pares) a $119.900 con ENVÍO GRATIS y PAGO CONTRA ENTREGA en efectivo.\n\n` +
+        `📦 Manejamos *${targetProduct.name}*:\n${combosPreview} con ENVÍO GRATIS y PAGO CONTRA ENTREGA en efectivo 🚚\n\n` +
         `⚠️ (Nota: Configura tu GEMINI_API_KEY en el archivo .env para activar las respuestas con IA).`
       );
     }
@@ -49,11 +59,11 @@ export class GeminiService implements IAiService {
       // 3. Limitar el historial a los últimos turnos para optimizar tokens y costes
       const limitedHistory = history.slice(-this.maxHistoryRounds);
       const isOngoing = history.length > 1;
-      const currentSystemInstruction = isOngoing
-        ? `${MORAMERCO_SYSTEM_PROMPT}\n\n[INSTRUCCIÓN CRÍTICA]: Esta conversación YA ESTÁ EN CURSO. El cliente YA fue saludado y bienvenido. ¡ESTRICTAMENTE PROHIBIDO decir "¡Hola! Soy Maria Paula, bienvenido a MoraMerco" o volver a saludar! Responda directamente de forma ULTRA CONCISA (máximo 1 o 2 frases cortas).`
-        : MORAMERCO_SYSTEM_PROMPT;
 
-      // 4. Llamar a Gemini con el System Prompt oficial de MoraMerco (con modelo de respaldo si hay alta demanda)
+      // Inyección dinámica del contexto del producto seleccionado
+      const currentSystemInstruction = buildSystemPrompt(targetProduct, isOngoing);
+
+      // 4. Llamar a Gemini con el System Prompt oficial dinámico de MoraMerco
       let response;
       try {
         response = await this.ai.models.generateContent({
@@ -66,11 +76,10 @@ export class GeminiService implements IAiService {
           },
         });
       } catch (err: any) {
-        if (err?.status === 503 || err?.status === 429 || err?.status === 500) {
-          const fallbackModel = 'gemini-3.5-flash';
-          console.warn(`⚠️ Modelo ${this.modelName} saturado temporalmente (${err?.status}). Conmutando automáticamente a ${fallbackModel}...`);
+        console.warn(`⚠️ Error en modelo principal (${this.modelName}): ${err?.message || err}. Conmutando automáticamente a modelo secundario (${this.fallbackModelName})...`);
+        try {
           response = await this.ai.models.generateContent({
-            model: fallbackModel,
+            model: this.fallbackModelName,
             contents: limitedHistory,
             config: {
               systemInstruction: currentSystemInstruction,
@@ -78,8 +87,10 @@ export class GeminiService implements IAiService {
               maxOutputTokens: 500,
             },
           });
-        } else {
-          throw err;
+          console.log(`✅ Respuesta generada exitosamente con el modelo secundario (${this.fallbackModelName}).`);
+        } catch (fallbackErr: any) {
+          console.error(`❌ Ambos modelos (${this.modelName} y ${this.fallbackModelName}) fallaron:`, fallbackErr?.message || fallbackErr);
+          throw fallbackErr;
         }
       }
 
@@ -108,17 +119,30 @@ export class GeminiService implements IAiService {
       return replyText;
     } catch (error) {
       console.error(`❌ Error en Gemini AI para el chat [${senderId}]:`, error);
+
+      const firstCombo = targetProduct.pricingCombos[0];
+      const secondCombo = targetProduct.pricingCombos[1] || firstCombo;
+
       if (this.conversationHistory.get(senderId) && this.conversationHistory.get(senderId)!.length > 1) {
         return (
-          'Con gusto le confirmo: el Combo x1 (1 Par de Barras) le queda en *$69.900* o el Combo Dúo x2 (Nevera + Lavadora) en *$119.900* con Envío Gratis y pago en casa 🚚\n\n' +
-          '¿Desea que le apartemos 1 Par o prefiere el Combo Dúo x2?'
+          `Con gusto le confirmo: ${firstCombo.label} le queda en *$${firstCombo.price.toLocaleString('es-CO')}* ` +
+          (secondCombo !== firstCombo ? `o ${secondCombo.label} en *$${secondCombo.price.toLocaleString('es-CO')}* ` : '') +
+          `con Envío Gratis y pago en casa 🚚\n\n` +
+          `¿Desea que le apartemos su pedido hoy?`
         );
       }
+
+      const combosText = targetProduct.pricingCombos
+        .map((c) => {
+          const savings = c.savings ? ` (Ahorra $${c.savings.toLocaleString('es-CO')})` : '';
+          return `🔹 ${c.label}: $${c.price.toLocaleString('es-CO')}${savings}`;
+        })
+        .join('\n');
+
       return (
-        '¡Hola! Soy Maria Paula de MoraMerco 😊 Con gusto le comparto nuestras ofertas con Envío Gratis y pago contra entrega en efectivo 🚚:\n\n' +
-        '🔹 Combo x1 (1 Par de Barras): $69.900\n' +
-        '🔥 Combo Dúo (x2 Pares - Nevera + Lavadora): $119.900 (Ahorra $20.000)\n\n' +
-        '¿Las busca para 1 electrodoméstico o desea aprovechar el Combo Dúo?'
+        `¡Hola! Soy Maria Paula de MoraMerco 😊 Con gusto le comparto nuestras opciones para *${targetProduct.name}* con Envío Gratis y pago contra entrega en efectivo 🚚:\n\n` +
+        `${combosText}\n\n` +
+        `¿Cuál de las opciones le dejamos programada para despacho?`
       );
     }
   }

@@ -12,10 +12,12 @@ import { AuthStateService } from './auth-state.service.js';
 import { QrService } from './qr.service.js';
 import { IMessageHandler, IMessageSender, IButtonOption } from '../../domain/services/message-handler.interface.js';
 import { NormalizedMessage } from '../../domain/models/message.model.js';
+import { config } from '../../config/env.config.js';
 
 export class BaileysSocketService implements IMessageSender {
   private socket: WASocket | null = null;
   private isConnecting: boolean = false;
+  private readonly groupNameCache = new Map<string, string>();
 
   constructor(
     private readonly authService: AuthStateService,
@@ -93,10 +95,23 @@ export class BaileysSocketService implements IMessageSender {
         console.log('✅ ¡CONECTADO CON ÉXITO A WHATSAPP WEB!');
         console.log('🤖 El bot está activo y escuchando mensajes en tiempo real.');
         console.log('======================================================');
+
+        if (config.showGroupMessages) {
+          this.listAllParticipatingGroups().catch(() => {});
+        }
       }
     });
 
-    // 3. Captura y normalización de mensajes entrantes
+    // 3. Actualización de metadatos de grupos
+    this.socket.ev.on('groups.update', (updates) => {
+      for (const update of updates) {
+        if (update.id && update.subject) {
+          this.groupNameCache.set(update.id, update.subject);
+        }
+      }
+    });
+
+    // 4. Captura y normalización de mensajes entrantes
     this.socket.ev.on('messages.upsert', async (upsert) => {
       // 'notify' indica mensajes nuevos en tiempo real
       if (upsert.type !== 'notify') return;
@@ -109,6 +124,24 @@ export class BaileysSocketService implements IMessageSender {
 
         const normalized = this.normalizeMessage(rawMessage);
         if (!normalized) continue;
+
+        // Si es de grupo, resolver el nombre del grupo para enriquecer la visualización
+        if (normalized.isGroup && this.socket) {
+          const cached = this.groupNameCache.get(normalized.remoteJid);
+          if (cached) {
+            normalized.groupName = cached;
+          } else {
+            try {
+              const meta = await this.socket.groupMetadata(normalized.remoteJid);
+              if (meta?.subject) {
+                this.groupNameCache.set(normalized.remoteJid, meta.subject);
+                normalized.groupName = meta.subject;
+              }
+            } catch {
+              // Silencioso si no se pueden obtener metadatos (e.g. sin permisos o offline)
+            }
+          }
+        }
 
         try {
           await this.messageHandler.handleIncomingMessage(normalized, this);
@@ -139,8 +172,10 @@ export class BaileysSocketService implements IMessageSender {
     // Detectar si es mensaje de grupo
     const isGroup = remoteJid.endsWith('@g.us');
 
-    // Por defecto para dropshipping, ignoramos grupos para no responder en comunidades
-    if (isGroup) return null;
+    // Si la opción de ver grupos está desactivada, ignoramos por completo
+    if (isGroup && !config.showGroupMessages) {
+      return null;
+    }
 
     // Normalizar contenido si viene envuelto en viewOnce, ephemeral, etc.
     const messageContent = normalizeMessageContent(raw.message);
@@ -179,11 +214,19 @@ export class BaileysSocketService implements IMessageSender {
     else if (messageContent.listResponseMessage?.singleSelectReply?.selectedRowId) {
       text = messageContent.listResponseMessage.singleSelectReply.selectedRowId;
     }
-    // 6. Mensaje multimedia con pie de foto (Caption)
-    else if (messageContent.imageMessage?.caption) {
-      text = messageContent.imageMessage.caption;
-    } else if (messageContent.videoMessage?.caption) {
-      text = messageContent.videoMessage.caption;
+    // 6. Mensaje multimedia con pie de foto (Caption) o descripción de archivo si es grupo
+    else if (messageContent.imageMessage) {
+      text = messageContent.imageMessage.caption || (isGroup ? '📷 [Foto sin texto]' : '');
+    } else if (messageContent.videoMessage) {
+      text = messageContent.videoMessage.caption || (isGroup ? '🎥 [Video sin texto]' : '');
+    } else if (messageContent.audioMessage) {
+      text = isGroup ? '🎵 [Nota de voz / Audio]' : '';
+    } else if (messageContent.stickerMessage) {
+      text = isGroup ? '🏷️ [Sticker]' : '';
+    } else if (messageContent.documentMessage) {
+      text = messageContent.documentMessage.caption || (isGroup ? `📄 [Documento: ${messageContent.documentMessage.fileName || 'archivo'}]` : '');
+    } else if (messageContent.contactMessage) {
+      text = isGroup ? `👤 [Contacto: ${messageContent.contactMessage.displayName || ''}]` : '';
     }
     // 7. Voto en Encuesta Interactiva (Poll)
     else if (messageContent.pollUpdateMessage) {
@@ -193,8 +236,13 @@ export class BaileysSocketService implements IMessageSender {
     const trimmedText = text.trim();
     if (!trimmedText) return null;
 
-    // Extraer el número telefónico sin sufijo @s.whatsapp.net ni @lid
-    const senderNumber = remoteJid.split('@')[0];
+    // Extraer el número telefónico del remitente
+    // En grupos, el remitente real viene en participant; en privado, en remoteJid
+    const participantJid = isGroup
+      ? (raw.key.participant || (raw as any).participant || remoteJid)
+      : remoteJid;
+
+    const senderNumber = participantJid.split('@')[0].split(':')[0];
     const senderName = raw.pushName || undefined;
     const timestamp = typeof raw.messageTimestamp === 'number'
       ? raw.messageTimestamp
@@ -214,6 +262,10 @@ export class BaileysSocketService implements IMessageSender {
 
   // Métodos de la interfaz IMessageSender
   public async sendTextMessage(recipientJid: string, text: string): Promise<void> {
+    if (recipientJid.endsWith('@g.us') && recipientJid !== config.whatsappSalesGroupJid) {
+      console.warn(`🛑 [Seguridad] Envío bloqueado: No se envían mensajes a grupos no autorizados (${recipientJid})`);
+      return;
+    }
     if (!this.socket) {
       throw new Error('Socket no inicializado');
     }
@@ -230,6 +282,10 @@ export class BaileysSocketService implements IMessageSender {
     headerTitle?: string,
     footerText?: string
   ): Promise<void> {
+    if (recipientJid.endsWith('@g.us')) {
+      console.warn(`🛑 [Seguridad] Envío bloqueado: No se envían mensajes a grupos (${recipientJid})`);
+      return;
+    }
     if (!this.socket) {
       throw new Error('Socket no inicializado');
     }
@@ -261,6 +317,10 @@ export class BaileysSocketService implements IMessageSender {
   }
 
   public async sendImageMessage(recipientJid: string, imagePath: string, caption?: string): Promise<void> {
+    if (recipientJid.endsWith('@g.us') && recipientJid !== config.whatsappSalesGroupJid) {
+      console.warn(`🛑 [Seguridad] Envío bloqueado: No se envían mensajes a grupos no autorizados (${recipientJid})`);
+      return;
+    }
     if (!this.socket) {
       throw new Error('Socket no inicializado');
     }
@@ -279,11 +339,29 @@ export class BaileysSocketService implements IMessageSender {
   }
 
   public async sendTypingState(recipientJid: string): Promise<void> {
-    if (!this.socket) return;
+    if (!this.socket || recipientJid.endsWith('@g.us')) return;
     try {
       await this.socket.sendPresenceUpdate('composing', recipientJid);
     } catch {
       // Ignorar fallos transitorios en presencia
+    }
+  }
+
+  /**
+   * Consulta y lista en consola todos los grupos en los que participa el número, con sus respectivos IDs
+   */
+  public async listAllParticipatingGroups(): Promise<void> {
+    if (!this.socket) return;
+    try {
+      const groups = await this.socket.groupFetchAllParticipating();
+      console.log('--- GRUPOS DE WHATSAPP DISPONIBLES ---');
+      for (const [id, metadata] of Object.entries(groups)) {
+        this.groupNameCache.set(id, metadata.subject);
+        console.log(`[GRUPO] "${metadata.subject}" -> ID: ${id}`);
+      }
+      console.log('--------------------------------------');
+    } catch (err) {
+      console.warn('⚠️ No se pudieron listar los grupos participantes:', err);
     }
   }
 }
