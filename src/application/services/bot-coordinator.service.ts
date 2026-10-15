@@ -1,6 +1,7 @@
 import { IMessageHandler, IMessageSender, IButtonOption } from '../../domain/services/message-handler.interface.js';
 import { NormalizedMessage } from '../../domain/models/message.model.js';
 import { IAiService } from '../../domain/services/ai-service.interface.js';
+import { ISheetsService } from '../../domain/services/sheets-service.interface.js';
 import { QuickReplyService } from '../../domain/services/quick-reply.service.js';
 import { DataValidatorService, CustomerShippingData } from '../../domain/services/data-validator.service.js';
 import { FollowUpService } from './follow-up.service.js';
@@ -34,7 +35,8 @@ export class BotCoordinatorService implements IMessageHandler {
     private readonly aiService: IAiService,
     private readonly quickReplyService: QuickReplyService = new QuickReplyService(),
     private readonly followUpService: FollowUpService = new FollowUpService(45, 3),
-    debounceMs: number = 9000
+    debounceMs: number = 9000,
+    private readonly sheetsService?: ISheetsService
   ) {
     this.debounceMs = debounceMs;
   }
@@ -454,9 +456,10 @@ export class BotCoordinatorService implements IMessageHandler {
         this.followUpService.scheduleFollowUp(unifiedMessage.remoteJid, sender, currentProduct);
       }
 
-      // 8. Si el pedido fue confirmado, enviar notificación automática al grupo interno de ventas
+      // 8. Si el pedido fue confirmado, enviar notificación automática al grupo de ventas y registrar en Google Sheets
       if (orderJustConfirmed) {
         await this.notifySalesGroup(unifiedMessage, currentProduct, sender);
+        await this.recordOrderInSheets(unifiedMessage, currentProduct);
       }
     } catch (error) {
       console.error(`❌ Error procesando lote de mensajes para [${jid}]:`, error);
@@ -509,7 +512,7 @@ export class BotCoordinatorService implements IMessageHandler {
           ? cleanDigits
           : cleanDigits;
 
-      const productDesc = customerProduct?.description || product?.name || 'Base Ajustable de Acero';
+      const productDesc = customerProduct?.description || product?.name || 'Luz Lineal Solar X 10m';
       const priceText = customerProduct?.price
         ? `$${customerProduct.price.toLocaleString('es-CO')}`
         : 'Contra entrega en efectivo';
@@ -526,10 +529,13 @@ export class BotCoordinatorService implements IMessageHandler {
       const timeStr = now.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: true });
       const dateStr = now.toLocaleDateString('es-CO');
 
+      const dropiId = product?.dropiId || '1931414';
+
       const alertMessage =
         `🚨 *¡NUEVO PEDIDO CONFIRMADO!* 📦🎉\n` +
         `━━━━━━━━━━━━━━━━━━━━\n` +
         `🛍️ *Pedido:* ${productDesc}\n` +
+        `🆔 *ID Dropi:* ${dropiId}\n` +
         `💰 *Valor:* ${priceText}\n` +
         `💵 *Pago:* Contra entrega en efectivo (Envío Gratis 🚚)\n\n` +
         `👤 *Cliente:* ${customerName}\n` +
@@ -547,6 +553,66 @@ export class BotCoordinatorService implements IMessageHandler {
       }
     } catch (error) {
       console.error(`❌ Error enviando notificación de venta al grupo [${targetGroupJid}]:`, error);
+    }
+  }
+
+  /**
+   * Registra automáticamente el pedido confirmado en Google Sheets
+   */
+  private async recordOrderInSheets(
+    message: NormalizedMessage,
+    product?: ProductConfig
+  ): Promise<void> {
+    if (!this.sheetsService || !this.sheetsService.isConfigured()) {
+      return;
+    }
+
+    try {
+      let savedData = this.quickReplyService.getCustomerData(message.remoteJid);
+      if (!savedData || !savedData.isValid || !savedData.phone || !savedData.city) {
+        savedData = this.recoverShippingDataFromHistory(message.remoteJid, savedData);
+      }
+
+      const customerProduct = this.quickReplyService.getCustomerProduct(message.remoteJid);
+
+      const customerName = savedData?.name || message.senderName || 'Cliente';
+      const rawPhone = savedData?.phone || message.senderNumber;
+      const cleanDigits = rawPhone.replace(/[^\d]/g, '');
+      const waNumber = cleanDigits.length === 10 && cleanDigits.startsWith('3')
+        ? `57${cleanDigits}`
+        : cleanDigits.startsWith('57')
+          ? cleanDigits
+          : cleanDigits;
+
+      const productDesc = customerProduct?.description || product?.name || 'Luz Lineal Solar X 10m';
+      const price = customerProduct?.price || product?.pricingCombos?.[0]?.price || 54900;
+      const dropiId = product?.dropiId || '1931414';
+
+      const city = savedData?.city || 'Por coordinar';
+      const department = savedData?.department || '';
+      const address = savedData?.address || 'Por coordinar';
+      const neighborhood = savedData?.neighborhood || '';
+      const deliveryType = savedData?.isOfficeDelivery ? 'Reclamo en Oficina' : 'A Domicilio';
+
+      await this.sheetsService.appendOrder({
+        orderDate: new Date(),
+        dropiId,
+        customerName,
+        phone: rawPhone,
+        whatsappLink: `https://wa.me/${waNumber}`,
+        product: productDesc,
+        price,
+        city,
+        department,
+        address,
+        neighborhood,
+        deliveryType,
+        paymentMethod: 'Contra entrega en efectivo',
+        status: 'CONFIRMADO',
+      });
+
+    } catch (error) {
+      console.error('❌ Error registrando pedido en Google Sheets:', error);
     }
   }
 

@@ -319,9 +319,9 @@ export class FuzzyMatcherService {
   ): string {
     switch (topic) {
       case 'COMPATIBILITY_WEIGHT':
-        return '¡Con total seguridad le confirmo! Nuestra Base Ajustable consta de dos barras de acero independientes con 24 ruedas con freno integrado y almohadillas antideslizantes. Soportan electrodomésticos pesados de sobra y al bloquear los frenos evitan que la lavadora se mueva o vibre al centrifugar 🛠️🔒';
+        return '¡Totalmente resistentes! Cuentan con certificación IP65 impermeable para intemperie, soportando lluvias y sol intenso. Su panel con batería de litio almacena energía para encenderse sola toda la noche 🌧️☀️';
       case 'KIT_PRICE':
-        return 'Con mucho gusto le confirmo: el *Combo Dúo x2* (2 pares de barras para Nevera + Lavadora) le sale en *$119.900* con Envío Gratis a toda Colombia y pago contra entrega en efectivo (ahorra $20.000). Si prefiere el Combo x1 (1 Par para 1 equipo) le queda en *$69.900* 🚚✨';
+        return 'Con mucho gusto te confirmo: el *Combo Estrella x2 Unidades (20 metros)* te sale en *$79.900* con Envío Gratis y pago contra entrega (ahorras $30.000). Si prefieres 1 unidad (10 metros) te queda en *$54.900* o 3 unidades (30m) en *$109.900* 🎄✨';
       case 'PAYMENT':
         return 'El pago es 100% contra entrega en efectivo al recibir su paquete en casa o en oficina de Interrapidísimo 💵 (Muchos repartidores también permiten transferencia Nequi o Bancolombia en el momento de la entrega) 👍';
       case 'SHIPPING':
@@ -329,9 +329,10 @@ export class FuzzyMatcherService {
       case 'WARRANTY':
         return 'Tiene total tranquilidad: cuenta con garantía directa de 30 días de fábrica y soporte posventa con nosotros. Además, no arriesga su dinero porque abona seguro en efectivo solo al recibir en sus manos 🛡️📦';
       case 'MEASUREMENTS':
-        return 'Son dos barras de acero independientes y telescópicas, ajustables de 45 a 70 cm de largo, con una elevación de 4 cm del suelo. Ideales para trapear fácil sin matarse la espalda y proteger sus equipos del óxido causado por agua estancada 📐✨';
+        return 'Cada extensión tiene 10 metros de longitud y 100 bombillos LED brillantes. Con el Combo Estrella de 2 unidades cubres 20 metros (200 bombillos) ideal para fachadas, balcones o jardines 📐✨';
       case 'INSTALLATION':
-        return '¡Cero complicaciones y sin herramientas! Al ser dos barras independientes (no una plataforma cuadrada que toque armar), solo ubica una a cada lado bajo su nevera o lavadora, ajusta el largo telescópico y listo en un dos por tres 🛠️✨';
+        return '¡Súper fácil y sin cables a la corriente! Solo ubicas el panel solar donde reciba luz del día y extiendes la guirnalda de luces. Se prende automáticamente al anochecer y se apaga de día 💡☀️';
+
       case 'OFFICE_DELIVERY':
         return '¡Claro que sí! Con mucho gusto se lo despachamos para *Reclamo en Oficina de Interrapidísimo* en su municipio. El envío sigue siendo Gratis y cancela en efectivo en la misma oficina al retirar 🏢📦';
       case 'OTHER':

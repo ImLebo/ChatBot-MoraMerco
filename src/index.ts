@@ -3,6 +3,7 @@ import { AuthStateService } from './infrastructure/whatsapp/auth-state.service.j
 import { QrService } from './infrastructure/whatsapp/qr.service.js';
 import { BaileysSocketService } from './infrastructure/whatsapp/baileys-socket.service.js';
 import { GeminiService } from './infrastructure/ai/gemini.service.js';
+import { GoogleSheetsService } from './infrastructure/sheets/google-sheets.service.js';
 import { BotCoordinatorService } from './application/services/bot-coordinator.service.js';
 
 async function bootstrap() {
@@ -13,15 +14,29 @@ async function bootstrap() {
   console.log(`🤖 Modelos IA: 1º Principal [${config.geminiModel}] | 2º Secundario [${config.geminiFallbackModel}]`);
   console.log(`👥 Monitoreo de Grupos: ${config.showGroupMessages ? 'Activado (Solo Lectura) 👀' : 'Desactivado (Ignorar grupos) 🚫'}`);
   console.log(`📢 Grupo de Ventas: ${config.WHATSAPP_SALES_GROUP_JID ? `${config.WHATSAPP_SALES_GROUP_JID} ✅` : 'No configurado (Alertas desactivadas) ℹ️'}`);
-  console.log('======================================================');
-
-  // 1. Capa de Infraestructura: Autenticación, QR y Gemini AI
+  
+  // 1. Capa de Infraestructura: Autenticación, QR, Gemini AI y Google Sheets
   const authService = new AuthStateService(config.sessionsDir);
   const qrService = new QrService();
   const aiService = new GeminiService(config.geminiApiKey, config.geminiModel, config.geminiFallbackModel);
+  const sheetsService = new GoogleSheetsService(
+    config.googleSheetsSpreadsheetId,
+    config.googleSheetsCredentialsPath,
+    config.googleSheetsTabName
+  );
 
-  // 2. Capa de Aplicación: Coordinador del Bot con IA inyectada
-  const botCoordinator = new BotCoordinatorService(aiService);
+  console.log(`📊 Google Sheets: ${sheetsService.isConfigured() ? 'Conectado y Listo ✅' : 'No configurado ⚠️'}`);
+  console.log('======================================================');
+
+  // 2. Capa de Aplicación: Coordinador del Bot con IA y Sheets inyectados
+  const botCoordinator = new BotCoordinatorService(
+    aiService,
+    undefined,
+    undefined,
+    undefined,
+    sheetsService
+  );
+
 
   // 3. Capa de Infraestructura: Socket de Baileys
   const whatsappSocket = new BaileysSocketService(

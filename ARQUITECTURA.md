@@ -6,7 +6,8 @@ Este documento detalla la arquitectura de software, el flujo de toma de decision
 
 ## 1. Visión General del Sistema
 
-El bot está diseñado para automatizar la atención y el cierre de ventas de la **Base Ajustable de Acero Independiente** (par de barras telescópicas con 24 ruedas y frenos para lavadoras y neveras) a través de WhatsApp, combinando:
+El bot está diseñado para automatizar la atención y el cierre de ventas de la **Luz Lineal Solar X 10m (100 LEDs Exterior / Guirnalda Solar de Navidad)** a través de WhatsApp, combinando:
+
 
 1. **Respuestas Rápidas Locales (Cero consumo de tokens)**: Respuestas ultrarrápidas y deterministas para precios, fotos, dudas frecuentes y confirmaciones de pedidos.
 2. **Inteligencia Artificial Generativa (Google Gemini)**: Razonamiento fluido, manejo de objeciones complejas y comprensión de lenguaje informal y regional colombiano.
@@ -32,6 +33,7 @@ graph TD
         Auth["AuthStateService\n(MultiFile Auth)"]
         QR["QrService\n(Terminal QR)"]
         Gemini["GeminiService\n(@google/genai SDK)"]
+        Sheets["GoogleSheetsService\n(googleapis v4 Sheets)"]
     end
 
     subgraph "Capa de Aplicación (src/application)"
@@ -62,6 +64,7 @@ graph TD
     Gemini --> Prompt
 
     Coordinator -->|Texto / Imágenes / Botones| Socket
+    Coordinator -->|Registro de Pedidos Confirmados| Sheets
     Socket -->|WhatsApp Protocol| User
 ```
 
@@ -85,6 +88,7 @@ ChatBotAI/
 │   │   │   └── store-system.prompt.ts # System Prompt oficial de Maria Paula
 │   │   ├── services/
 │   │   │   ├── ai-service.interface.ts      # Contrato para servicios de IA
+│   │   │   ├── sheets-service.interface.ts  # Contrato para registro en Google Sheets
 │   │   │   ├── data-validator.service.ts    # Validador de direcciones y municipios COL
 │   │   │   ├── fuzzy-matcher.service.ts     # Normalizador fonético y corrector
 │   │   │   ├── message-handler.interface.ts # Contratos de entrada y salida
@@ -95,7 +99,9 @@ ChatBotAI/
 │   │       └── follow-up.service.ts         # Seguimiento en 45m y 3h
 │   ├── infrastructure/              # Adaptadores de tecnologías externas
 │   │   ├── ai/
-│   │   │   └── gemini.service.ts    # Conexión con Gemini 3.1 Flash Lite / 3.5 Flash
+│   │   │   └── gemini.service.ts        # Conexión con Gemini 3.1 Flash Lite / 3.5 Flash
+│   │   ├── sheets/
+│   │   │   └── google-sheets.service.ts # Registro automático de pedidos en Google Sheets
 │   │   └── whatsapp/
 │   │       ├── auth-state.service.ts    # Persistencia de auth Baileys
 │   │       ├── baileys-socket.service.ts# Socket WebSocket y decodificación de mensajes

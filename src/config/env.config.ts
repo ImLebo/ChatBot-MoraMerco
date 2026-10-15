@@ -12,6 +12,9 @@ export interface AppConfig {
   showGroupMessages: boolean;
   whatsappSalesGroupJid?: string;
   WHATSAPP_SALES_GROUP_JID?: string;
+  googleSheetsSpreadsheetId?: string;
+  googleSheetsCredentialsPath?: string;
+  googleSheetsTabName?: string;
 }
 
 const salesGroup = process.env.WHATSAPP_SALES_GROUP_JID?.trim();
@@ -25,7 +28,11 @@ export const config: AppConfig = {
   showGroupMessages: process.env.SHOW_GROUP_MESSAGES !== 'false',
   whatsappSalesGroupJid: salesGroup,
   WHATSAPP_SALES_GROUP_JID: salesGroup,
+  googleSheetsSpreadsheetId: process.env.GOOGLE_SHEETS_SPREADSHEET_ID?.trim() || '1FoOkfHEfpvejezbiD4X1uFneP3akZu0xFK4lEMQFFrg',
+  googleSheetsCredentialsPath: process.env.GOOGLE_SHEETS_CREDENTIALS_PATH?.trim() || './credentials/backend-lebo-d5e87ca58da9.json',
+  googleSheetsTabName: process.env.GOOGLE_SHEETS_TAB_NAME?.trim() || 'Hoja 1',
 };
 
 export const env = config;
+
 

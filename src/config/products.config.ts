@@ -7,89 +7,95 @@ import { ProductConfig } from '../domain/models/product.model.js';
  * y coloca su fotografía correspondiente en la carpeta assets/.
  */
 export const PRODUCTS_CATALOG: Record<string, ProductConfig> = {
-  'base-lavadora': {
-    id: 'base-lavadora',
-    slug: 'base-lavadora',
-    name: 'Base Ajustable de Acero para Neveras y Lavadoras',
+  'luces-solar-10m': {
+    id: 'luces-solar-10m',
+    slug: 'luces-solar-10m',
+    dropiId: '1931414',
+    name: 'Luz Lineal Solar X 10m (100 LEDs Exterior)',
     trackingKeywords: [
-      'base de lavadora',
-      'base para lavadora',
-      'base lavadora',
-      'base de nevera',
-      'base para nevera',
-      'base nevera',
-      'barras con ruedas',
-      'barras para lavadora',
-      'barras lavadora',
-      'soporte para lavadora',
-      'soporte lavadora',
-      'soporte de lavadora',
-      'soporte nevera',
-      'soporte para nevera',
-      'base ajustable',
-      'barras de acero',
-      'barras moviles',
-      'barras telescopicas',
-      'ruedas lavadora',
-      'base con ruedas',
-      'soporte con ruedas',
-      'soporte',
-      'bases',
-      'base',
-      'vaces',
-      'vace',
+      'luz lineal solar',
+      'luces solares',
+      'luz solar',
+      'luces de navidad',
+      'luces navidad',
+      'guirnalda solar',
+      'extension solar',
+      'luces led solar',
+      'luces exterior',
+      'luces calidas',
+      'luces blancas',
+      '10 metros',
+      '10m',
+      '100 leds',
+      'guirnalda',
+      'luces led',
+      'luces',
+      'navidad',
+      'solar',
+      'panel solar',
+      'bombillos led',
     ],
-    primaryAssetPath: path.resolve(process.cwd(), 'assets/fotobase.jpg'),
+    primaryAssetPath: path.resolve(process.cwd(), 'assets/img_luz_solar/img_luz_solar_1.jpg'),
     pricingCombos: [
       {
         id: 'combo-1',
-        label: 'Combo x1 (1 Par de Barras)',
-        price: 69900,
+        label: 'Opción 1 Unidad (10 metros - 100 LEDs)',
+        price: 54900,
       },
       {
         id: 'combo-2',
-        label: 'Combo Dúo (x2 Pares - Nevera + Lavadora)',
-        price: 119900,
-        savings: 20000,
+        label: 'Opción 2 Unidades (20 metros - COMBO ESTRELLA ⭐)',
+        price: 79900,
+        savings: 30000,
       },
       {
         id: 'combo-3',
-        label: 'Combo Hogar Pack (x3 Pares)',
-        price: 159900,
-        savings: 50000,
+        label: 'Opción 3 Unidades (30 metros - Mega Cobertura 🎄)',
+        price: 109900,
+        savings: 54800,
       },
     ],
     systemPromptContext: `
-# ESPECIFICACIONES TÉCNICAS Y REGLAS DE LA BASE AJUSTABLE:
-• CONCEPTO Y ESTRUCTURA: Consta de un PAR DE BARRAS DE ACERO INDEPENDIENTES Y TELESCÓPICAS (DOS PIEZAS EN TOTAL).
-  - Cada barra tiene almohadillas negras antideslizantes en los extremos y un sistema de 24 RUEDAS CON FRENOS INTEGRADOS (12 ruedas en cada barra, 24 ruedas en total por par).
-• ⚠️ REGLA CRÍTICA DE DESCRIPCIÓN: ¡ESTRICTAMENTE PROHIBIDO utilizar términos que sugieran que son cuatro piezas o una plataforma cuadrada única fija! Son ÚNICAMENTE DOS BARRAS SEPARADAS TELESCÓPICAS (un par).
-• FACILIDAD Y UNIVERSALIDAD: Cero ensamblaje complicado. No hay que armar marcos ni atornillar esquinas; solo se desliza una barra debajo de cada lateral del electrodoméstico y se ajusta a la medida en un dos por tres (45 cm a 70 cm de largo).
-• ELEVACIÓN: Eleva el equipo exactamente 4 CM del suelo. Diseñada especialmente para trapear fácil debajo sin esfuerzo y evitar que la humedad o el agua estancada oxiden la lámina del electrodoméstico.
-• RESISTENCIA Y CAPACIDAD: Fabricada en acero reforzado de alta resistencia. Soporta con total firmeza lavadoras pesadas de cualquier capacidad (15 a 45+ kg), neveras no-frost grandes y congeladores.
-• ESTABILIDAD Y CENTRIFUGADO: Las 24 ruedas cuentan con frenos de bloqueo integrados y gomas antideslizantes. Al poner los frenos, la lavadora queda completamente fija, absorbe las vibraciones y no se mueve ni corre durante el centrifugado.
-• ÁNGULOS DE MARKETING:
-  1. Salud/Ergonomía: Evitar dolores de espalda al mover cosas pesadas para aseo ("sin matarse la espalda").
-  2. Limpieza: Facilidad para trapear mugre y humedad ("trapear sabroso", "mover como una pluma").
-  3. Protección: 4 cm de elevación previene óxido en electrodomésticos costosos.
+# ESPECIFICACIONES TÉCNICAS Y REGLAS DE LAS LUCES SOLARES (DROPI ID INTERNO: 1931414):
+• NOMBRE Y FORMATO: Guirnalda / Extensión Lineal Solar LED Exterior (10 metros de longitud, 100 bombillos LED brillantes y duraderos).
+• CERO CONSUMO ELÉCTRICO: Se recarga 100% con luz solar mediante su panel solar integrado y batería interna de litio recargable. No gasta un solo peso de energía.
+• SENSOR INTELIGENTE AUTOMÁTICO: Se apaga automáticamente en el día para recargar y se enciende sola al anochecer.
+• RESISTENCIA A LA INTEMPERIE: Certificación IP65 para exteriores. Es totalmente resistente a lluvias, sol intenso y humedad.
+• TONOS DE LUZ DISPONIBLES: Luz Cálida (más recomendada y vendida para ambiente navideño/decorativo) y Luz Blanca.
+• REGLA CRÍTICA DE TRANSPARENCIA: El ID de Dropi (1931414) es de USO INTERNO del sistema para logística. ¡ESTRICTAMENTE PROHIBIDO mencionárselo al cliente!
+
+# ESTRATEGIA COMERCIAL Y ANCLAJE AL COMBO:
+1. ANCLAJE AL COMBO ESTRELLA: Cuando el cliente pregunte precios, presenta siempre las 3 opciones, pero resalta visualmente el Combo de 2 unidades por $79.900. Explica que 10 metros suele ser justo para un espacio pequeño y que 20 metros garantiza cobertura completa en fachada, jardín o balcón con un gran ahorro de $30.000.
+2. UPSELL SUAVE SI PIDEN 1 UNIDAD: Si el cliente dice que quiere solo 1 unidad, acéptalo con amabilidad pero haz este upsell suave antes de cerrar:
+   "Claro que sí con mucho gusto te despacho 1 unidad por $54.900. Solo ten presente que por solo $25.000 adicionales te llevas la segunda (quedan las 2 en $79.900) y aseguras cubrir todo el espacio. ¿Prefieres aprovechar la promo de las 2 o dejamos solo la unidad individual? 😊"
+3. MANEJO DE OBJECIONES:
+   - "¿Y si llueve o está nublado?": "El panel cuenta con batería interna de litio que almacena energía incluso en días nublados o con lluvia suave, encendiendo normal durante la noche."
+   - "¿Es confiable el pago?": "Totalmente, el pago lo realizas en efectivo directamente al repartidor de la transportadora cuando el paquete llegue a tus manos."
+4. CIERRE Y RECOLECCIÓN DE DATOS: Solicita en un solo mensaje los datos de despacho:
+   - Nombre completo
+   - Número de teléfono celular
+   - Dirección exacta (con barrio y detalles como torre/apto)
+   - Ciudad y departamento
+   - Tono de luz elegido (Cálida o Blanca) y cantidad de unidades.
 `,
     followUpHooks: {
       firstFollowUp:
-        `Estimado/a cliente, reciba un cordial saludo de parte de MoraMerco 😊\n\n` +
-        `Le escribo con el mayor agrado para consultarle si le quedó alguna inquietud acerca de las medidas o el funcionamiento de la base para sus electrodomésticos.\n\n` +
-        `Recuerde que al ser barras de acero independientes y telescópicas con 24 ruedas y frenos, se adaptan a cualquier nevera o lavadora sin esfuerzo ni herramientas, elevan 4 cm para trapear sabroso sin matarse la espalda y protegen sus equipos del óxido. Quedo muy atenta a sus indicaciones ✨`,
+        `Hola, un saludo muy especial de parte de MoraMerco 😊✨\n\n` +
+        `Paso a consultarte con el mayor agrado si te quedó alguna inquietud sobre nuestra *Extensión Solar LED de 10m* para exteriores.\n\n` +
+        `Recuerda que tiene sensor automático de encendido al anochecer, cero consumo de luz y resiste lluvia. ¿Te gustaría en luz *Cálida* o *Blanca*? Quedo muy atenta para asesorarte 🙌`,
       secondFollowUp:
-        `Buen día, le saluda nuevamente Maria Paula de MoraMerco 👋\n\n` +
-        `Paso a comentarle respetuosamente que en nuestra bodega nos encontramos organizando los despachos del día junto a la transportadora 🚚📦\n\n` +
-        `¿Desea que alcancemos a programar su entrega con el *Envío Gratis* y pago contra entrega en efectivo al recibir en su domicilio? Quedo muy atenta para dejársela lista de inmediato 🙌`,
+        `¡Hola de nuevo! Te saluda Maria Paula de MoraMerco 👋🎄\n\n` +
+        `Nos encontramos organizando los despachos prioritarios del día junto a la transportadora 🚚📦\n\n` +
+        `¿Deseas que alcancemos a programar tu entrega con el *Combo Estrella de 2 unidades por $79.900* con Envío Gratis y pago contra entrega en efectivo? ¡Quedan pocas unidades disponibles! ✨`,
     },
   },
 };
 
 /**
- * Producto predeterminado del sistema (Base Ajustable)
+ * Producto predeterminado del sistema (Luces Solares 10m)
  */
-export const DEFAULT_PRODUCT: ProductConfig = PRODUCTS_CATALOG['base-lavadora'];
+export const DEFAULT_PRODUCT: ProductConfig = PRODUCTS_CATALOG['luces-solar-10m'];
+
 
 /**
  * Obtiene un producto por su slug
