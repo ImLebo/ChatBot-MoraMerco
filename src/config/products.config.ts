@@ -24,6 +24,11 @@ export const PRODUCTS_CATALOG: Record<string, ProductConfig> = {
       'luces exterior',
       'luces calidas',
       'luces blancas',
+      'luces multicolor',
+      'multicolor',
+      'de colores',
+      'combo duo',
+      'combo 2',
       '10 metros',
       '10m',
       '100 leds',
@@ -44,7 +49,7 @@ export const PRODUCTS_CATALOG: Record<string, ProductConfig> = {
       },
       {
         id: 'combo-2',
-        label: 'Opción 2 Unidades (20 metros - COMBO ESTRELLA ⭐)',
+        label: 'Opción 2 Unidades (20 metros - COMBO DÚO FAVORITO 🎄)',
         price: 79900,
         savings: 30000,
       },
@@ -58,14 +63,19 @@ export const PRODUCTS_CATALOG: Record<string, ProductConfig> = {
     systemPromptContext: `
 # ESPECIFICACIONES TÉCNICAS Y REGLAS DE LAS LUCES SOLARES (DROPI ID INTERNO: 1931414):
 • NOMBRE Y FORMATO: Guirnalda / Extensión Lineal Solar LED Exterior (10 metros de longitud, 100 bombillos LED brillantes y duraderos).
+• ACLARACIÓN CLAVE DE FORMATO Y FORMA: Son bombillos microLED sobre guirnalda lineal de cable flexible. ¡NO tienen forma de estrellas! El "Combo Dúo" se llama así porque incluye 2 extensiones completas de 10m (20 metros y 200 LEDs en total).
+• APLICACIÓN EN BALCÓN Y ÁRBOL: Son ideales para bordear balcones, barandas, fachadas, jardines y árboles de Navidad (se envuelven entre las ramas y no necesitan cables a la corriente). NO son tipo cortina o chorritos que cuelgan verticalmente, sino guirnalda lineal continua.
 • CERO CONSUMO ELÉCTRICO: Se recarga 100% con luz solar mediante su panel solar integrado y batería interna de litio recargable. No gasta un solo peso de energía.
 • SENSOR INTELIGENTE AUTOMÁTICO: Se apaga automáticamente en el día para recargar y se enciende sola al anochecer.
 • RESISTENCIA A LA INTEMPERIE: Certificación IP65 para exteriores. Es totalmente resistente a lluvias, sol intenso y humedad.
-• TONOS DE LUZ DISPONIBLES: Luz Cálida (más recomendada y vendida para ambiente navideño/decorativo) y Luz Blanca.
+• TONOS DE LUZ DISPONIBLES (3 TONOS):
+  1. ✨ Luz Cálida: Tono dorado, súper acogedor, elegante y el más vendido para Navidad tradicional.
+  2. 💡 Luz Blanca: Iluminación nítida, moderna y brillante de alta visibilidad.
+  3. 🌈 Multicolor: Alegre, festiva, llena de colores navideños.
 • REGLA CRÍTICA DE TRANSPARENCIA: El ID de Dropi (1931414) es de USO INTERNO del sistema para logística. ¡ESTRICTAMENTE PROHIBIDO mencionárselo al cliente!
 
-# ESTRATEGIA COMERCIAL Y ANCLAJE AL COMBO:
-1. ANCLAJE AL COMBO ESTRELLA: Cuando el cliente pregunte precios, presenta siempre las 3 opciones, pero resalta visualmente el Combo de 2 unidades por $79.900. Explica que 10 metros suele ser justo para un espacio pequeño y que 20 metros garantiza cobertura completa en fachada, jardín o balcón con un gran ahorro de $30.000.
+# ESTRATEGIA COMERCIAL Y ANCLAJE AL COMBO DÚO:
+1. ANCLAJE AL COMBO DÚO: Cuando el cliente pregunte precios, presenta siempre las 3 opciones, pero resalta visualmente el Combo Dúo de 2 unidades por $79.900. Explica que 10 metros suele ser justo para un espacio pequeño y que 20 metros garantiza cobertura completa en fachada, jardín o balcón con un gran ahorro de $30.000.
 2. UPSELL SUAVE SI PIDEN 1 UNIDAD: Si el cliente dice que quiere solo 1 unidad, acéptalo con amabilidad pero haz este upsell suave antes de cerrar:
    "Claro que sí con mucho gusto te despacho 1 unidad por $54.900. Solo ten presente que por solo $25.000 adicionales te llevas la segunda (quedan las 2 en $79.900) y aseguras cubrir todo el espacio. ¿Prefieres aprovechar la promo de las 2 o dejamos solo la unidad individual? 😊"
 3. MANEJO DE OBJECIONES:
@@ -76,17 +86,17 @@ export const PRODUCTS_CATALOG: Record<string, ProductConfig> = {
    - Número de teléfono celular
    - Dirección exacta (con barrio y detalles como torre/apto)
    - Ciudad y departamento
-   - Tono de luz elegido (Cálida o Blanca) y cantidad de unidades.
+   - Tono de luz elegido (Cálida, Blanca o Multicolor) y cantidad de unidades.
 `,
     followUpHooks: {
       firstFollowUp:
         `Hola, un saludo muy especial de parte de MoraMerco 😊✨\n\n` +
         `Paso a consultarte con el mayor agrado si te quedó alguna inquietud sobre nuestra *Extensión Solar LED de 10m* para exteriores.\n\n` +
-        `Recuerda que tiene sensor automático de encendido al anochecer, cero consumo de luz y resiste lluvia. ¿Te gustaría en luz *Cálida* o *Blanca*? Quedo muy atenta para asesorarte 🙌`,
+        `Recuerda que tiene sensor automático al anochecer, cero consumo de luz y resiste lluvia 🌧️ ¿Te gustaría en luz *Cálida*, *Blanca* o *Multicolor*? Quedo muy atenta para asesorarte 🙌`,
       secondFollowUp:
         `¡Hola de nuevo! Te saluda Maria Paula de MoraMerco 👋🎄\n\n` +
         `Nos encontramos organizando los despachos prioritarios del día junto a la transportadora 🚚📦\n\n` +
-        `¿Deseas que alcancemos a programar tu entrega con el *Combo Estrella de 2 unidades por $79.900* con Envío Gratis y pago contra entrega en efectivo? ¡Quedan pocas unidades disponibles! ✨`,
+        `¿Deseas que alcancemos a programar tu entrega con el *Combo Dúo de 2 unidades por $79.900* con Envío Gratis y pago contra entrega en efectivo? ¡Quedan pocas unidades disponibles! ✨`,
     },
   },
 };
@@ -95,7 +105,6 @@ export const PRODUCTS_CATALOG: Record<string, ProductConfig> = {
  * Producto predeterminado del sistema (Luces Solares 10m)
  */
 export const DEFAULT_PRODUCT: ProductConfig = PRODUCTS_CATALOG['luces-solar-10m'];
-
 
 /**
  * Obtiene un producto por su slug

@@ -10,10 +10,11 @@ export interface CustomerShippingData {
   phone?: string;
   isOfficeDelivery?: boolean;
   officeName?: string;
+  tone?: string;
   missingFields: string[];
   feedbackMessage?: string;
   hasPendingDoubt?: boolean;
-  doubtTopic?: 'COMPATIBILITY_WEIGHT' | 'KIT_PRICE' | 'PAYMENT' | 'SHIPPING' | 'WARRANTY' | 'MEASUREMENTS' | 'INSTALLATION' | 'OFFICE_DELIVERY' | 'OTHER';
+  doubtTopic?: 'SHAPE_AND_PLACEMENT' | 'STAR_CONFUSION' | 'COMPATIBILITY_WEATHER' | 'COMPATIBILITY_WEIGHT' | 'KIT_PRICE' | 'PAYMENT' | 'SHIPPING' | 'WARRANTY' | 'MEASUREMENTS' | 'INSTALLATION' | 'OFFICE_DELIVERY' | 'OTHER';
   doubtAnswer?: string;
 }
 
@@ -493,7 +494,7 @@ export class DataValidatorService {
     if (!foundName || foundName.length < 3) {
       // A. Si el cliente puso explícitamente "Nombre: ...", "Recibe: ...", "Me llamo ...", "A nombre de ..."
       const nameExplicitMatch = rawText.match(
-        /(?:nombre(?:\s+completo|\s+y\s+apellido)?|recibe|destinatario|a\s+nombre\s+de|me\s+llamo|mi\s+nombre\s+es)\s*[:=\-]?\s*([a-zA-ZñáéíóúÁÉÍÓÚ\s]{3,40})/i
+        /(?:nombre(?:\s+completo|\s+y\s+apellido)?|recibe|destinatario|a\s+nombre\s+de|me\s+llamo|mi\s+nombre\s+es)\s*[:=\-]?\s*([a-zA-ZñáéíóúÁÉÍÓÚ\s]{3,40}?)(?=\s+(?:celular|tel|telefono|cra|cll|calle|carrera|diag|transv|av|avenida|barrio|ciudad|dir|direccion|\d)|$)/i
       );
       if (nameExplicitMatch && nameExplicitMatch[1]) {
         const candidate = nameExplicitMatch[1].trim();
@@ -536,7 +537,7 @@ export class DataValidatorService {
       // C. En mensaje de una sola línea con datos completos (ej: "Carlos Perez, Carrera 15 # 40-20, Bogota, 3101234567")
       if (!foundName) {
         const roadOrNumberMatch = rawText.search(
-          /(?:calle|carrera|cra|cll|cr|cl|diagonal|transversal|av|avenida|mz|manzana|vereda|finca|oficina|interrapidisimo|\d{3,})/i
+          /(?:celular|tel|telefono|calle|carrera|cra|cll|cr|cl|diagonal|transversal|av|avenida|mz|manzana|vereda|finca|oficina|interrapidisimo|\d{7,})/i
         );
         if (roadOrNumberMatch > 3) {
           const prefix = rawText.substring(0, roadOrNumberMatch).trim();

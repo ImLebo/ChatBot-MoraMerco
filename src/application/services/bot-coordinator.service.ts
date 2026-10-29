@@ -3,6 +3,7 @@ import { NormalizedMessage } from '../../domain/models/message.model.js';
 import { IAiService } from '../../domain/services/ai-service.interface.js';
 import { ISheetsService } from '../../domain/services/sheets-service.interface.js';
 import { QuickReplyService } from '../../domain/services/quick-reply.service.js';
+import { FuzzyMatcherService } from '../../domain/services/fuzzy-matcher.service.js';
 import { DataValidatorService, CustomerShippingData } from '../../domain/services/data-validator.service.js';
 import { FollowUpService } from './follow-up.service.js';
 import {
@@ -29,13 +30,14 @@ interface PausedChatState {
 export class BotCoordinatorService implements IMessageHandler {
   private readonly userQueues = new Map<string, UserMessageQueue>();
   private readonly pausedChats = new Map<string, PausedChatState>();
+  private readonly processedMessageIds = new Set<string>();
   private readonly debounceMs: number;
 
   constructor(
     private readonly aiService: IAiService,
     private readonly quickReplyService: QuickReplyService = new QuickReplyService(),
     private readonly followUpService: FollowUpService = new FollowUpService(45, 3),
-    debounceMs: number = 9000,
+    debounceMs: number = 4000,
     private readonly sheetsService?: ISheetsService
   ) {
     this.debounceMs = debounceMs;
@@ -46,6 +48,18 @@ export class BotCoordinatorService implements IMessageHandler {
     sender: IMessageSender
   ): Promise<void> {
     const jid = message.remoteJid;
+
+    // Ignorar mensajes duplicados recibidos por reintentos de red de WhatsApp
+    if (message.id) {
+      if (this.processedMessageIds.has(message.id)) {
+        return;
+      }
+      this.processedMessageIds.add(message.id);
+      if (this.processedMessageIds.size > 1000) {
+        const first = this.processedMessageIds.values().next().value;
+        if (first) this.processedMessageIds.delete(first);
+      }
+    }
 
     // 0. Si es un mensaje de grupo: MOSTRAR en consola para monitoreo, pero NUNCA responder
     if (message.isGroup) {
@@ -265,6 +279,13 @@ export class BotCoordinatorService implements IMessageHandler {
           this.quickReplyService.setCustomerData(unifiedMessage.remoteJid, val);
           console.log(`📦 [Datos de Envío Capturados] Nombre: ${val.name || 'N/A'}, Ciudad: ${val.city || 'N/A'}, Tel: ${val.phone || 'N/A'}`);
         }
+      }
+
+      // Detectar y registrar preferencia de tono de luz (Cálida, Blanca o Multicolor)
+      const toneChoice = FuzzyMatcherService.detectToneChoice(unifiedMessage.text);
+      if (toneChoice) {
+        this.quickReplyService.setSelectedTone(unifiedMessage.remoteJid, toneChoice);
+        console.log(`🎨 [Tono de Luz Registrado] "${toneChoice}" para el cliente (+${unifiedMessage.senderNumber})`);
       }
 
       // =======================================================================

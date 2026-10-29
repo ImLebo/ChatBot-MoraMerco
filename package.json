@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx src/index.ts",
+    "test:sheets": "tsx src/test-sheets.ts",
     "build": "tsc",
     "start": "node dist/index.js"
   },

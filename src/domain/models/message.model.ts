@@ -28,5 +28,7 @@ export interface ChatState {
   stage: ChatFlowStage;
   activeProductId?: string;
   selectedComboId?: string;
+  selectedTone?: 'Cálida' | 'Blanca' | 'Multicolor' | string;
+  lastAnsweredIntent?: string;
   updatedAt?: number;
 }

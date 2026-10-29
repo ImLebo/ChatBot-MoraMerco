@@ -3,6 +3,7 @@ import { IAiService } from '../../domain/services/ai-service.interface.js';
 import { ProductConfig } from '../../domain/models/product.model.js';
 import { buildSystemPrompt } from '../../domain/prompts/store-system.prompt.js';
 import { DEFAULT_PRODUCT } from '../../config/products.config.js';
+import { FuzzyMatcherService } from '../../domain/services/fuzzy-matcher.service.js';
 
 interface ChatHistoryItem {
   role: 'user' | 'model';
@@ -16,8 +17,8 @@ export class GeminiService implements IAiService {
 
   constructor(
     private readonly apiKey?: string,
-    private readonly modelName: string = 'gemini-3.1-flash-lite',
-    private readonly fallbackModelName: string = 'gemini-2.5-flash-lite'
+    private readonly modelName: string = 'gemini-2.5-flash',
+    private readonly fallbackModelName: string = 'gemini-1.5-flash'
   ) {
     if (this.apiKey && this.apiKey.trim().length > 0) {
       this.ai = new GoogleGenAI({ apiKey: this.apiKey.trim() });
@@ -32,17 +33,9 @@ export class GeminiService implements IAiService {
   ): Promise<string> {
     const targetProduct = product || DEFAULT_PRODUCT;
 
-    // Si no se ha configurado la API Key, dar respuesta de contingencia con el producto activo
+    // Si no se ha configurado la API Key, resolver de forma asistida inteligente
     if (!this.ai) {
-      const combosPreview = targetProduct.pricingCombos
-        .map((c) => `${c.label} a $${c.price.toLocaleString('es-CO')}`)
-        .join(' | ');
-
-      return (
-        `¡Hola! Soy Maria Paula de MoraMerco 😊\n\n` +
-        `📦 Manejamos *${targetProduct.name}*:\n${combosPreview} con ENVÍO GRATIS y PAGO CONTRA ENTREGA en efectivo 🚚\n\n` +
-        `⚠️ (Nota: Configura tu GEMINI_API_KEY en el archivo .env para activar las respuestas con IA).`
-      );
+      return this.generateIntelligentFallback(senderId, userMessage, targetProduct);
     }
 
     try {
@@ -94,7 +87,7 @@ export class GeminiService implements IAiService {
         }
       }
 
-      let replyText = response.text?.trim() || 'Con gusto le ayudo. ¿Cuál de las opciones le apartamos?';
+      let replyText = response.text?.trim() || 'Con gusto te ayudo. ¿Cuál de los tonos te gustaría para tu hogar: Cálida, Blanca o Multicolor?';
 
       // Si la conversación ya está en curso, sanitizar cualquier saludo repetitivo que el modelo genere
       if (isOngoing) {
@@ -119,32 +112,56 @@ export class GeminiService implements IAiService {
       return replyText;
     } catch (error) {
       console.error(`❌ Error en Gemini AI para el chat [${senderId}]:`, error);
+      return this.generateIntelligentFallback(senderId, userMessage, targetProduct);
+    }
+  }
 
-      const firstCombo = targetProduct.pricingCombos[0];
-      const secondCombo = targetProduct.pricingCombos[1] || firstCombo;
+  /**
+   * Genera una respuesta inteligente de contingencia basada en la intención real del usuario
+   * evitando respuestas repetitivas o mensajes fríos.
+   */
+  private generateIntelligentFallback(
+    senderId: string,
+    userMessage: string,
+    targetProduct: ProductConfig
+  ): string {
+    const isOngoing = (this.conversationHistory.get(senderId) || []).length > 1;
 
-      if (this.conversationHistory.get(senderId) && this.conversationHistory.get(senderId)!.length > 1) {
-        return (
-          `Con gusto le confirmo: ${firstCombo.label} le queda en *$${firstCombo.price.toLocaleString('es-CO')}* ` +
-          (secondCombo !== firstCombo ? `o ${secondCombo.label} en *$${secondCombo.price.toLocaleString('es-CO')}* ` : '') +
-          `con Envío Gratis y pago en casa 🚚\n\n` +
-          `¿Desea que le apartemos su pedido hoy?`
-        );
-      }
+    // 1. Si el cliente tiene una duda específica de forma, estrellas, árboles, balcón, clima, etc.
+    if (FuzzyMatcherService.hasQuestionOrDoubt(userMessage)) {
+      const topic = FuzzyMatcherService.detectDoubtTopic(userMessage);
+      const answer = FuzzyMatcherService.getDoubtAnswer(topic);
+      return `${answer}\n\n¿Te gustaría en luz *Cálida*, *Blanca* o *Multicolor*? Quedo muy atenta para asesorarte 🙌`;
+    }
 
-      const combosText = targetProduct.pricingCombos
-        .map((c) => {
-          const savings = c.savings ? ` (Ahorra $${c.savings.toLocaleString('es-CO')})` : '';
-          return `🔹 ${c.label}: $${c.price.toLocaleString('es-CO')}${savings}`;
-        })
-        .join('\n');
+    // 2. Si es una conversación en curso
+    const firstCombo = targetProduct.pricingCombos[0];
+    const duoCombo = targetProduct.pricingCombos[1] || firstCombo;
 
+    if (isOngoing) {
       return (
-        `¡Hola! Soy Maria Paula de MoraMerco 😊 Con gusto le comparto nuestras opciones para *${targetProduct.name}* con Envío Gratis y pago contra entrega en efectivo 🚚:\n\n` +
-        `${combosText}\n\n` +
-        `¿Cuál de las opciones le dejamos programada para despacho?`
+        `¡Con mucho gusto te oriento! 😊 Recuerda que tenemos disponibles 3 tonos: *Cálida* ✨, *Blanca* 💡 y *Multicolor* 🌈\n\n` +
+        `El más pedido es el *${duoCombo.label}* en *$${duoCombo.price.toLocaleString('es-CO')}* (ahorras $30.000) o 1 unidad en *$${firstCombo.price.toLocaleString('es-CO')}* con Envío Gratis y pago contra entrega 🚚\n\n` +
+        `¿Cuál de los tonos te gustaría para tu hogar?`
       );
     }
+
+    // 3. Primer contacto
+    const combosText = targetProduct.pricingCombos
+      .map((c) => {
+        const savings = c.savings ? ` (Ahorras $${c.savings.toLocaleString('es-CO')})` : '';
+        return `• ${c.label}: $${c.price.toLocaleString('es-CO')}${savings}`;
+      })
+      .join('\n');
+
+    return (
+      `¡Hola! Soy Maria Paula de MoraMerco 😊 Con mucho gusto te asesoro sobre nuestras *${targetProduct.name}* 🎄✨\n\n` +
+      `Cuentan con panel solar recargable, sensor inteligente al anochecer y certificación impermeable IP65 🌧️\n` +
+      `Disponibles en: *Cálida*, *Blanca* y *Multicolor* 🌈\n\n` +
+      `🚚 *Precios con Envío GRATIS y Pago Contra Entrega en efectivo:*\n` +
+      `${combosText}\n\n` +
+      `¿Cuál de las opciones te dejamos programada?`
+    );
   }
 
   public recordExchange(senderId: string, userMessage: string, botReply: string): void {

@@ -108,7 +108,7 @@ export class FuzzyMatcherService {
 
     if (normInput === normTarget) return true;
 
-    // Comparación fonética directa (ej: "vaces" vs "bases", "labadora" vs "lavadora")
+    // Comparación fonética directa
     const phonInput = this.toPhonetic(normInput);
     const phonTarget = this.toPhonetic(normTarget);
     if (phonInput === phonTarget) return true;
@@ -147,8 +147,7 @@ export class FuzzyMatcherService {
       return textWords.some((tw) => this.fuzzyMatchWord(tw, target, threshold));
     }
 
-    // Si es una frase de varias palabras (ej: "nevera y lavadora" o "cuanto vale"):
-    // Buscar ventana deslizante de palabras en el texto
+    // Si es una frase de varias palabras:
     for (let i = 0; i <= textWords.length - targetWords.length; i++) {
       let allMatch = true;
       for (let j = 0; j < targetWords.length; j++) {
@@ -171,7 +170,7 @@ export class FuzzyMatcherService {
   }
 
   /**
-   * Encuentra el mejor candidato coincidente en una lista (por ejemplo para ciudades o transportadoras)
+   * Encuentra el mejor candidato coincidente en una lista
    */
   public static findBestMatch(input: string, candidates: string[], threshold: number = 0.80): string | undefined {
     let bestCandidate: string | undefined;
@@ -203,9 +202,7 @@ export class FuzzyMatcherService {
   // =========================================================================
 
   /**
-   * Determina si el mensaje contiene alguna pregunta o duda pendiente,
-   * ya sea de forma explícita (con '?') o implícita mediante palabras de consulta
-   * y mala ortografía común en Colombia.
+   * Determina si el mensaje contiene alguna pregunta o duda pendiente
    */
   public static hasQuestionOrDoubt(rawText: string): boolean {
     // 1. Signos explícitos de interrogación
@@ -214,36 +211,32 @@ export class FuzzyMatcherService {
     const norm = rawText.toLowerCase();
     const phon = this.toPhonetic(rawText);
 
-    // 2. Interrogativos o patrones de duda directa (incluyendo ortografía popular)
+    // 2. Interrogativos o patrones de duda directa
     const doubtKeywords = [
       'cuanto', 'cuamto', 'qto', 'cto', 'kuanto', 'cuanta', 'cuantos', 'cuantas',
       'cuesta', 'kuesta', 'custa', 'costo', 'costaria', 'valor', 'precio', 'presio',
       'vale', 'valen', 'sale', 'salen', 'a como', 'a cuanto', 'que vale', 'que cuesta',
-      'si le sirve', 'le sirve', 'si sirve', 'sirve', 'cirve', 'sirve a', 'sirve para',
-      'aguanta', 'soporta', 'resiste', 'aguanta el', 'soporta el', 'kilos', 'kilo', 'kg',
-      'centrifugado', 'centrifujado', 'sentrifugado', 'vibra', 'vibracion', 'se mueve',
-      'se corre', 'tiembla', 'freno', 'frenos',
-      'como se arma', 'como se instala', 'como viene', 'dificil de armar',
+      'como es eso', 'como es', 'que es', 'como asi', 'de que trata', 'que incluye',
+      'que trae', 'trae', 'vienen', 'vienen las dos', 'son estrellas', 'tienen forma de',
+      'en forma de', 'chorritos', 'cascada', 'arbol', 'para arbol', 'balcon', 'para balcon',
+      'resiste lluvia', 'llueve', 'impermeable', 'si llueve', 'si esta nublado', 'panel solar',
+      'como funciona', 'se prende sola', 'como carga',
       'nequi', 'daviplata', 'bancolombia', 'como se paga', 'como pago', 'metodo de pago',
-      'puedo pagar', 'se puede pagar', 'pago contraentrega', 'abrir antes', 'revisar antes',
-      'destapar antes', 'garantia', 'garantilla', 'es seguro', 'confiable', 'estafa',
+      'puedo pagar', 'se puede pagar', 'pago contraentrega', 'garantia', 'es seguro', 'confiable',
       'cuanto demora', 'cuanto tarda', 'cuando llega', 'tiempo de entrega',
-      'medidas', 'dimensiones', 'cuanto mide', 'tamano', 'altura', 'alto', 'del piso',
+      'medidas', 'dimensiones', 'cuanto mide', 'tamano', 'longitud', 'largo',
       'donde estan', 'de donde son', 'tienen tienda', 'local fisico',
       'sera que', 'una pregunta', 'tengo una duda', 'otra pregunta', 'una inquietud',
-      'el kit trae', 'trae las dos', 'vienen las dos', 'es cada una'
+      'me gustaria verlas', 'quiero verlas', 'ver las luces', 'fotos'
     ];
 
     const phonTokens = phon.split(/\s+/);
 
     return doubtKeywords.some((kw) => {
-      // Si la palabra clave es una frase compuesta con espacios
       if (kw.includes(' ')) {
         return norm.includes(kw) || phon.includes(this.toPhonetic(kw));
       }
 
-      // Si es una sola palabra, verificar con límite de palabra (\b) para evitar falsos positivos
-      // (ej. "Manizales" no debe activar "sale", "tranquilo" no debe activar "kilo")
       const regex = new RegExp(`\\b${kw}\\b`, 'i');
       if (regex.test(norm)) return true;
 
@@ -257,23 +250,36 @@ export class FuzzyMatcherService {
    */
   public static detectDoubtTopic(
     rawText: string
-  ): 'COMPATIBILITY_WEIGHT' | 'KIT_PRICE' | 'PAYMENT' | 'SHIPPING' | 'WARRANTY' | 'MEASUREMENTS' | 'INSTALLATION' | 'OFFICE_DELIVERY' | 'OTHER' {
+  ): 'SHAPE_AND_PLACEMENT' | 'STAR_CONFUSION' | 'COMPATIBILITY_WEATHER' | 'KIT_PRICE' | 'PAYMENT' | 'SHIPPING' | 'WARRANTY' | 'MEASUREMENTS' | 'INSTALLATION' | 'OFFICE_DELIVERY' | 'OTHER' {
     const norm = rawText.toLowerCase();
-    const phon = this.toPhonetic(rawText);
 
-    // Duda de compatibilidad, lavadora, kilos, vibración o centrifugado
+    // Duda sobre estrellas o confusión de "Combo Estrella" ("como es eso", "son estrellas", "combo de estrellas")
     if (
-      /\b(40\s*kilos?|40k|kilos?|kg|peso|centrifugad[oa]|vibra|vibracion|se mueve|se corre|frenos?|soporta|aguanta|sirve|sirbe)\b/i.test(norm) ||
-      phon.includes('centrifujado') || phon.includes('sentrifugado') || phon.includes('sirbe') || phon.includes('kilos')
+      /\b(estrellas?|combo\s*de\s*estrellas?)\b/i.test(norm) &&
+      (/\b(como\s*es|que\s*es|son|tienen\s*forma|figura|como\s*asi|de\s*que)\b/i.test(norm) || norm.includes('como es eso'))
     ) {
-      return 'COMPATIBILITY_WEIGHT';
+      return 'STAR_CONFUSION';
     }
 
-    // Duda de precios o kits ("i el x q cuesta", "cuanto valen las 2 vaces", "el kit trae las 2")
+    // Duda de formato: chorritos, cascada, árbol, balcón
+    if (
+      /\b(chorritos?|cascada|cortina|lluvia\s*de\s*luces|arbol|balcon|para\s*el\s*arbol|en\s*el\s*arbol|para\s*el\s*balcon)\b/i.test(norm)
+    ) {
+      return 'SHAPE_AND_PLACEMENT';
+    }
+
+    // Duda de resistencia a la lluvia / clima / sol / impermeable
+    if (
+      /\b(llueve|lluvia|lluvias|nublado|impermeable|resiste\s*agua|intemperie|se\s*moja|ip65|sol\s*intenso)\b/i.test(norm)
+    ) {
+      return 'COMPATIBILITY_WEATHER';
+    }
+
+    // Duda de precios o combos ("cuanto vale el combo", "cuanto cuestan las 2")
     if (
       (/\b(cuesta|costo|vale|valen|precio|presio|valor|cuanto|qto|cto)\b/i.test(norm) &&
-      /\b(el\s*x|x2|kit|las\s*2|las\s*dos|bases|vaces|ambas|cada\s*una|ambos)\b/i.test(norm)) ||
-      norm.includes('el x q cuesta') || norm.includes('las 2 vaces') || norm.includes('trae las dos')
+      /\b(el\s*x|x2|kit|combo|las\s*2|las\s*dos|ambas|cada\s*una|ambos|duo)\b/i.test(norm)) ||
+      norm.includes('cuanto vale el combo') || norm.includes('cuanto valen las 2')
     ) {
       return 'KIT_PRICE';
     }
@@ -294,12 +300,12 @@ export class FuzzyMatcherService {
     }
 
     // Duda de medidas o dimensiones
-    if (/\b(medidas|dimensiones|cuanto mide|tamano|altura|alto|del piso|del suelo)\b/i.test(norm)) {
+    if (/\b(medidas|dimensiones|cuanto mide|tamano|altura|alto|longitud|largo|metros)\b/i.test(norm)) {
       return 'MEASUREMENTS';
     }
 
-    // Duda de instalación o armado
-    if (/\b(como se arma|como se instala|armado|instalacion|dificil de armar|herramientas|facil de armar)\b/i.test(norm)) {
+    // Duda de instalación, panel solar o cómo funciona
+    if (/\b(como se arma|como se instala|como funciona|panel solar|se prende sola|recargable|sin cables)\b/i.test(norm)) {
       return 'INSTALLATION';
     }
 
@@ -315,13 +321,17 @@ export class FuzzyMatcherService {
    * Genera una respuesta inmediata, cálida y precisa a una duda o pregunta detectada
    */
   public static getDoubtAnswer(
-    topic: 'COMPATIBILITY_WEIGHT' | 'KIT_PRICE' | 'PAYMENT' | 'SHIPPING' | 'WARRANTY' | 'MEASUREMENTS' | 'INSTALLATION' | 'OFFICE_DELIVERY' | 'OTHER'
+    topic: 'SHAPE_AND_PLACEMENT' | 'STAR_CONFUSION' | 'COMPATIBILITY_WEATHER' | 'KIT_PRICE' | 'PAYMENT' | 'SHIPPING' | 'WARRANTY' | 'MEASUREMENTS' | 'INSTALLATION' | 'OFFICE_DELIVERY' | 'OTHER'
   ): string {
     switch (topic) {
-      case 'COMPATIBILITY_WEIGHT':
-        return '¡Totalmente resistentes! Cuentan con certificación IP65 impermeable para intemperie, soportando lluvias y sol intenso. Su panel con batería de litio almacena energía para encenderse sola toda la noche 🌧️☀️';
+      case 'STAR_CONFUSION':
+        return '¡Con mucho gusto te aclaro! 😊 No tienen forma de figuras de estrellas, son bombillitos LED tipo guirnalda lineal de 10 metros (100 LEDs por extensión) con panel solar recargable. Le llamamos Combo Dúo porque incluye 2 extensiones completas (20 metros y 200 LEDs) con $30.000 de ahorro ✨🎄';
+      case 'SHAPE_AND_PLACEMENT':
+        return '¡Hola! Te cuento con todo gusto: son extensiones de guirnalda lineal (10 metros con 100 LEDs cada una). ✨ Para el balcón y barandas son perfectas porque las puedes bordear o enrollar fácilmente. 🎄 Para el árbol de Navidad quedan hermosas porque las vas envolviendo entre las ramas y no necesitan cables a la pared. No son chorritos o cascadas colgantes verticales, sino cable lineal súper flexible y resistente a la lluvia 🌧️💡';
+      case 'COMPATIBILITY_WEATHER':
+        return '¡Totalmente resistentes! Cuentan con certificación IP65 impermeable para intemperie, soportando lluvia intensa y sol. Su panel con batería interna de litio almacena energía incluso en días nublados para encenderse sola toda la noche 🌧️☀️';
       case 'KIT_PRICE':
-        return 'Con mucho gusto te confirmo: el *Combo Estrella x2 Unidades (20 metros)* te sale en *$79.900* con Envío Gratis y pago contra entrega (ahorras $30.000). Si prefieres 1 unidad (10 metros) te queda en *$54.900* o 3 unidades (30m) en *$109.900* 🎄✨';
+        return 'Con mucho gusto te confirmo: el *Combo Dúo x2 Unidades (20 metros)* te sale en *$79.900* con Envío Gratis y pago contra entrega (ahorras $30.000). Si prefieres 1 unidad (10 metros) te queda en *$54.900* o 3 unidades (30m) en *$109.900* 🎄✨';
       case 'PAYMENT':
         return 'El pago es 100% contra entrega en efectivo al recibir su paquete en casa o en oficina de Interrapidísimo 💵 (Muchos repartidores también permiten transferencia Nequi o Bancolombia en el momento de la entrega) 👍';
       case 'SHIPPING':
@@ -329,15 +339,114 @@ export class FuzzyMatcherService {
       case 'WARRANTY':
         return 'Tiene total tranquilidad: cuenta con garantía directa de 30 días de fábrica y soporte posventa con nosotros. Además, no arriesga su dinero porque abona seguro en efectivo solo al recibir en sus manos 🛡️📦';
       case 'MEASUREMENTS':
-        return 'Cada extensión tiene 10 metros de longitud y 100 bombillos LED brillantes. Con el Combo Estrella de 2 unidades cubres 20 metros (200 bombillos) ideal para fachadas, balcones o jardines 📐✨';
+        return 'Cada extensión tiene 10 metros de longitud y 100 bombillos LED brillantes. Con el Combo Dúo de 2 unidades cubres 20 metros (200 bombillos) ideal para fachadas, balcones o jardines 📐✨';
       case 'INSTALLATION':
-        return '¡Súper fácil y sin cables a la corriente! Solo ubicas el panel solar donde reciba luz del día y extiendes la guirnalda de luces. Se prende automáticamente al anochecer y se apaga de día 💡☀️';
-
+        return '¡Súper fácil y sin cables a la corriente! Solo ubicas el panel solar donde reciba luz del día y extiendes la guirnalda de luces. Se prende automáticamente al anochecer y se apaga de día sola 💡☀️';
       case 'OFFICE_DELIVERY':
         return '¡Claro que sí! Con mucho gusto se lo despachamos para *Reclamo en Oficina de Interrapidísimo* en su municipio. El envío sigue siendo Gratis y cancela en efectivo en la misma oficina al retirar 🏢📦';
       case 'OTHER':
       default:
-        return 'Con mucho gusto resolveremos cualquier consulta adicional sobre sus bases de barras ajustables 😊';
+        return 'Con mucho gusto te colaboro con cualquier inquietud sobre nuestras luces solares navideñas 😊';
     }
+  }
+
+  /**
+   * Detecta si el cliente está indeciso entre varios colores o pregunta si se pueden combinar
+   */
+  public static isIndecisiveOrCombineTones(rawText: string): boolean {
+    const text = rawText
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim();
+
+    return (
+      /\b(indecis[oa]|no\s*se\s*si|cual\s*me\s*recomiendas?|cual\s*se\s*ve\s*mas|cual\s*es\s*mejor|se\s*pueden\s*combinar|puedo\s*combinar|una\s*y\s*una|una\s*de\s*cada|vienen\s*combinadas|puedo\s*pedir\s*una\s*de\s*cada|cual\s*queda\s*mas|entre\s*calida|entre\s*blanca|entre\s*multicolor|combinar|combinadas)\b/i.test(text) ||
+      (/\b(calida|amarilla)\b/i.test(text) && /\b(multicolor|colores|blanca)\b/i.test(text) && /\b(o|cual|pero|recomiendas|bonita|mejor)\b/i.test(text))
+    );
+  }
+
+  /**
+   * Extrae la combinación personalizada de tonos cuando el cliente pide varias unidades con distintos colores
+   * Ej: "2 cálidas y 1 multicolor", "una cálida y una blanca"
+   */
+  public static extractCombinedTones(rawText: string): string | null {
+    const text = rawText
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim();
+
+    // Patrones específicos de cantidades por tono
+    // Ej: "2 calidas y 1 multicolor", "una calida y una multicolor", "1 blanca y 1 calida"
+    if (/\b(2|dos)\s*(calidas?|amarillas?)\b/i.test(text) && /\b(1|una)\s*(multicolor|colorida|de\s*colores)\b/i.test(text)) {
+      return '2 Cálidas + 1 Multicolor';
+    }
+    if (/\b(1|una)\s*(calidas?|amarillas?)\b/i.test(text) && /\b(2|dos)\s*(multicolor|colorida|de\s*colores)\b/i.test(text)) {
+      return '1 Cálida + 2 Multicolor';
+    }
+    if (/\b(2|dos)\s*(calidas?|amarillas?)\b/i.test(text) && /\b(1|una)\s*(blancas?)\b/i.test(text)) {
+      return '2 Cálidas + 1 Blanca';
+    }
+    if (/\b(1|una)\s*(calidas?|amarillas?)\b/i.test(text) && /\b(2|dos)\s*(blancas?)\b/i.test(text)) {
+      return '1 Cálida + 2 Blancas';
+    }
+    if (/\b(una|1)\s*(calida|amarilla)\b/i.test(text) && /\b(una|1)\s*(multicolor|de\s*colores)\b/i.test(text)) {
+      return '1 Cálida + 1 Multicolor';
+    }
+    if (/\b(una|1)\s*(calida|amarilla)\b/i.test(text) && /\b(una|1)\s*(blanca)\b/i.test(text)) {
+      return '1 Cálida + 1 Blanca';
+    }
+    if (/\b(una|1)\s*(blanca)\b/i.test(text) && /\b(una|1)\s*(multicolor)\b/i.test(text)) {
+      return '1 Blanca + 1 Multicolor';
+    }
+    if (/\b(combinadas?|mitad\s*y\s*mitad|una\s*y\s*una)\b/i.test(text)) {
+      return 'Tonos combinados a elección';
+    }
+
+    return null;
+  }
+
+  /**
+   * Detecta si el cliente está respondiendo o seleccionando un tono de luz
+   */
+  public static detectToneChoice(rawText: string): 'Cálida' | 'Blanca' | 'Multicolor' | null {
+    // Si está indeciso o preguntando si puede combinar, NO forzar una elección solitaria
+    if (this.isIndecisiveOrCombineTones(rawText)) {
+      return null;
+    }
+
+    const text = rawText
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^\w\s]/g, ' ')
+      .trim();
+
+    // 1. Multicolor (de colores, navideña, colorida)
+    if (
+      /\b(multicolor|multi\s*color|de\s*colores|colores|colorida|navidena|navidad|tercera|la\s*3|la\s*tercera|opcion\s*3)\b/i.test(text) &&
+      !/\b(que\s*colores|cuales\s*colores|tienen\s*colores)\b/i.test(text)
+    ) {
+      return 'Multicolor';
+    }
+
+    // 2. Cálida (amarilla, dorada, primera, calidad - autocorrect común)
+    if (
+      /\b(calida|calido|luz\s*calida|amarilla|dorada|calidad|primera|la\s*1|la\s*primera|opcion\s*1|la\s*mas\s*recomendada)\b/i.test(text) &&
+      !/\b(que\s*tonos|cuales\s*tonos|tienen\s*calida)\b/i.test(text)
+    ) {
+      return 'Cálida';
+    }
+
+    // 3. Blanca (fria, clara, segunda)
+    if (
+      /\b(blanca|blanco|luz\s*blanca|fria|luz\s*fria|segunda|la\s*2|la\s*segunda|opcion\s*2)\b/i.test(text) &&
+      !/\b(que\s*tonos|cuales\s*tonos|tienen\s*blanca)\b/i.test(text)
+    ) {
+      return 'Blanca';
+    }
+
+    return null;
   }
 }
